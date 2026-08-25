@@ -45,6 +45,7 @@
 - **API 契约**:FastAPI 应用工厂 + lifespan 装配单例(数据源、价格表)挂 `app.state`;全部只读 GET,六组资源:`overview`、`trends/daily`、`models`、`projects`、`performance`、`health`,外加 `meta`(数据覆盖范围、生成时间、未计价模型清单)。Pydantic 模型内联在各 router(deer-flow 模式)。错误统一 HTTPException;数据源不兼容返回专用错误码由前端渲染降级提示。
 - **统计口径**:`started_at` 按本地时区聚日;分位数用 P50/P90/P99;TTFT 分位数排除空值并在响应中带样本数;成本 = Σ(各档 token ÷ 1e6 × 单价)。
 - **前端**:React SPA(Vite + TS + Tailwind + shadcn/ui + ECharts + react-query,pnpm 管理);开发期 Vite 将 `/api` 代理到 FastAPI :8000,生产构建产物由 FastAPI StaticFiles 托管——交付形态为单进程。六个视图对应上述六组资源,另含全局来源/时间范围说明栏。
+- **视觉基准**(参照 ZCode IDE 设置中"使用统计"面板,2026-08 截图分析):KPI 大数字卡片行(大号数值 + 灰色小标签 + 细分隔线,不用重边框卡片);GitHub 风格 Token 活动热力图,配每日/每周/累计粒度切换;时间范围分段控件(近 7 日 / 近 30 日 / 全部);按模型着色的多序列趋势折线(图例色点对应模型);模型占比环形图;数值用中文单位(万)格式化;深色主题、圆角卡片分区、充分留白。官方面板没有的能力——成本金额、缓存读/写拆分、性能分位数、健康度、按项目拆分——是 zlens 的增量,借鉴其形式但不削减自身范围。
 - **治理**:工程规范以 AGENTS.md 为唯一事实源(uv + ruff E/F/I/UP + pytest live marker 分层 + pre-commit local hooks + Makefile 四件套 + Keep a Changelog),细节见该文件,spec 不重复。
 
 ## Testing Decisions
