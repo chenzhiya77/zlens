@@ -1,0 +1,12 @@
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "UP"]
+
+[lint.isort]
+known-first-party = ["zlens"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

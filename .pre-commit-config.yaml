@@ -1,0 +1,21 @@
+# Local hooks reuse the exact commands CI/dev runs (`make check`), so what blocks a
+# commit here is identical to what fails in review — one source of truth, no drift.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: uv-lock
+        name: uv lock check
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

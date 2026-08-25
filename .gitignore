@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Project secrets & local config
+.env
+pricing.json
+
+# Frontend
+node_modules/
+frontend/dist/
+src/zlens/web/static_dist/
+
+# Logs & OS
+logs/
+*.log
+.DS_Store
+Thumbs.db

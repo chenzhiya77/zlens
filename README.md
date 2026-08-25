@@ -1,0 +1,26 @@
+# zlens
+
+Local-first 的 AI Coding Agent token 用量与成本分析工具。v1 数据源:ZCode。
+
+打开即查:五类 token 总览、日趋势、按模型 / 按项目拆分、性能分位数(TTFT / 耗时)、
+健康度(重试与错误)。数据来自本机 `~/.zcode/cli/db/db.sqlite`,全程以
+`mode=ro` 只读访问,不影响正在进行的对话。
+
+## 快速开始
+
+```bash
+make install                          # uv sync + pre-commit install
+cp pricing.example.json pricing.json  # 可选:启用成本折算(USD / 1M tokens)
+make dev                              # 打开 http://127.0.0.1:8000
+```
+
+## 文档
+
+- 设计规格:`docs/specs/v1-spec.md`
+- 实施票:`docs/plans/tickets/`
+- Agent 协作约定:[AGENTS.md](./AGENTS.md)
+
+## 边界
+
+- 仅统计本机、且自 ZCode 启用该数据库(2026-08-25)以来的记录;账号级总量请查看服务商 dashboard。
+- 无公开定价的模型(如内部模型)默认只显示 token 数,不折算金额。
