@@ -1,8 +1,13 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { createBrowserRouter } from "react-router-dom";
+import type { ReactElement } from "react";
 
+import Health from "./pages/Health";
+import Models from "./pages/Models";
 import Overview from "./pages/Overview";
-import Placeholder from "./pages/Placeholder";
+import Performance from "./pages/Performance";
+import Projects from "./pages/Projects";
+import Trends from "./pages/Trends";
 
 export const VIEWS = [
   { path: "/", label: "总览" },
@@ -13,19 +18,14 @@ export const VIEWS = [
   { path: "/health", label: "健康度" },
 ] as const;
 
-// Views whose implementing tickets (T06/T07) have not landed yet.
-const PLACEHOLDERS: Record<string, { title: string; ticket: string }> = {
-  "/trends": { title: "日趋势", ticket: "T06" },
-  "/models": { title: "按模型", ticket: "T06" },
-  "/projects": { title: "按项目", ticket: "T07" },
-  "/performance": { title: "性能", ticket: "T07" },
-  "/health": { title: "健康度", ticket: "T07" },
+const PAGE_ELEMENTS: Record<(typeof VIEWS)[number]["path"], ReactElement> = {
+  "/": <Overview />,
+  "/trends": <Trends />,
+  "/models": <Models />,
+  "/projects": <Projects />,
+  "/performance": <Performance />,
+  "/health": <Health />,
 };
-
-function elementFor(path: string) {
-  const placeholder = PLACEHOLDERS[path];
-  return placeholder ? <Placeholder {...placeholder} /> : <Overview />;
-}
 
 function Layout() {
   const { pathname } = useLocation();
@@ -75,6 +75,6 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
-    children: VIEWS.map(({ path }) => ({ path, element: elementFor(path) })),
+    children: VIEWS.map(({ path }) => ({ path, element: PAGE_ELEMENTS[path] })),
   },
 ]);

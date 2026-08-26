@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 全部六个数据视图:总览、日趋势(多序列折线 + 时间范围切换 + 每日/每周/累计活动图)、
+  按模型(占比环形图 + 排行)、按项目、性能(P50/P90/P99)、健康度(重试/错误分布)。
 - 前端壳与总览视图(React SPA:六视图导航、KPI 大数字卡片行、按模型明细表、
   未计价模型提示、数据源错误降级提示);生产构建由 FastAPI 托管为单进程,
   开发期 Vite 代理 `/api`。
