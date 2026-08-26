@@ -22,12 +22,12 @@ zlens/
 │   ├── specs/              # 需求规格:v1 行为契约与验收标准
 │   └── plans/tickets/      # 实施票:每票一文件,含目标/边界/验收/阻塞边
 ├── src/zlens/              # 后端包(Python >=3.12,src layout)
-│   ├── core/               # config.py(配置)与 cost.py(成本估算)——随票落地
-│   ├── sources/            # base.py 适配器协议 + zcode.py(mode=ro)——随票落地
-│   ├── api/                # FastAPI:create_app/lifespan/routers 只读端点——随票落地
-│   └── web/static_dist/    # 前端构建产物,FastAPI 托管(gitignored)
+│   ├── core/               # config.py(配置)、cost.py(成本估算)、stats.py(分位数)
+│   ├── sources/            # base.py 适配器协议 + zcode.py(mode=ro 只读)
+│   ├── api/                # FastAPI:create_app/routers 只读端点 + SPA 静态托管
+│   └── web/static_dist/    # 前端构建产物(gitignored,由 make build-web 生成)
 ├── tests/                  # pytest,扁平命名 test_<feature>.py;live marker 默认排除
-└── frontend/               # React SPA(Vite+TS+Tailwind+shadcn+ECharts+react-query,pnpm)
+└── frontend/               # React SPA(Vite+TS+Tailwind+ECharts+react-query,pnpm)
 ```
 
 标注"随票落地"的目录由 docs/plans/tickets/ 对应票创建,不要提前空占位。
@@ -55,13 +55,16 @@ zlens/
 
 | 命令 | 作用 |
 |---|---|
-| make install | uv sync + pre-commit install(frontend 就位后追加 pnpm install) |
+| make install | uv sync + pre-commit install + pnpm install(前端) |
 | make dev | 启动 FastAPI 开发服务器 http://127.0.0.1:8000(reload) |
+| make dev-web | 启动 Vite 开发服务器 http://127.0.0.1:5173(/api 代理到 :8000) |
+| make dev-all | 同时启动后端与 Vite 开发服务器 |
+| make build-web | 前端类型检查 + 构建,产物落 src/zlens/web/static_dist |
 | make test | 离线测试(默认排除 live) |
 | make test-live | 含真实本地库的测试 |
 | make lint | ruff check + ruff format --check |
 | make format | ruff 自动修复 + 格式化 |
-| make check | lint + test,推送前必跑 |
+| make check | lint + test + build-web,推送前必跑 |
 
 ## 代码风格
 

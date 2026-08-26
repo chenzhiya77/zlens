@@ -9,9 +9,10 @@ Local-first 的 AI Coding Agent token 用量与成本分析工具。v1 数据源
 ## 快速开始
 
 ```bash
-make install                          # uv sync + pre-commit install
+make install                          # 后端 + 前端依赖 + pre-commit 钩子
 cp pricing.example.json pricing.json  # 可选:启用成本折算(USD / 1M tokens)
-make dev                              # 打开 http://127.0.0.1:8000
+make build-web && make dev            # 生产形态:单进程 http://127.0.0.1:8000
+# 或前端热更开发:make dev-all(页面在 http://127.0.0.1:5173)
 ```
 
 ## 文档

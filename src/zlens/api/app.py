@@ -6,14 +6,21 @@ assembled directly instead of in a lifespan; a lifespan arrives with the first
 resource that actually needs setup/teardown.
 """
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from zlens import __version__
 from zlens.api.routers import health, meta, models, overview, performance, projects, trends
 from zlens.core.config import Settings, load_settings
 from zlens.sources.base import SourceError, SourceUnavailable
 from zlens.sources.zcode import ZcodeSource
+
+# Built by `make build-web` (frontend/ → ../src/zlens/web/static_dist).
+_STATIC_DIST = Path(__file__).resolve().parent.parent / "web" / "static_dist"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,6 +44,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects.router)
     app.include_router(performance.router)
     app.include_router(health.router)
+
+    if _STATIC_DIST.is_dir():
+        # Single-process delivery: API routes above win by registration order,
+        # everything else falls through to the built SPA. Client-side routes
+        # (e.g. /trends) get index.html via the 404 fallback.
+        app.mount("/", StaticFiles(directory=_STATIC_DIST, html=True), name="web")
+
+        @app.exception_handler(StarletteHTTPException)
+        async def http_exception(request: Request, exc: StarletteHTTPException):
+            is_spa_route = exc.status_code == 404 and not request.url.path.startswith("/api")
+            if is_spa_route:
+                return FileResponse(_STATIC_DIST / "index.html")
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
     return app
 
 
