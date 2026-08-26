@@ -12,9 +12,19 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from zlens.sources.models import Overview
+from zlens.sources.models import DailyModelUsage, DailyTrends, DailyUsage, Overview
 
 _TOKENS_PER_PRICE_UNIT = 1_000_000
+
+_SUMMARY_KEYS = (
+    "request_count",
+    "input_tokens",
+    "output_tokens",
+    "reasoning_tokens",
+    "cache_creation_tokens",
+    "cache_read_tokens",
+    "total_tokens",
+)
 
 
 class ModelPrice(BaseModel):
@@ -60,21 +70,55 @@ class PriceTable(BaseModel):
         ) / _TOKENS_PER_PRICE_UNIT
 
 
+def _cost_of(item, table: PriceTable) -> float | None:
+    return table.estimate_cost(
+        item.model_id,
+        input_tokens=item.input_tokens,
+        output_tokens=item.output_tokens,
+        cache_creation_tokens=item.cache_creation_tokens,
+        cache_read_tokens=item.cache_read_tokens,
+    )
+
+
+def attach_model_costs(models, table: PriceTable):
+    return [m.model_copy(update={"estimated_cost_usd": _cost_of(m, table)}) for m in models]
+
+
 def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     """Attach per-model costs; the total only appears when every model is priced."""
-    by_model = []
-    for item in overview.by_model:
-        cost = table.estimate_cost(
-            item.model_id,
-            input_tokens=item.input_tokens,
-            output_tokens=item.output_tokens,
-            cache_creation_tokens=item.cache_creation_tokens,
-            cache_read_tokens=item.cache_read_tokens,
-        )
-        by_model.append(item.model_copy(update={"estimated_cost_usd": cost}))
-
+    by_model = attach_model_costs(overview.by_model, table)
     fully_priced = bool(by_model) and all(m.estimated_cost_usd is not None for m in by_model)
     total = round(sum(m.estimated_cost_usd for m in by_model), 6) if fully_priced else None
     return overview.model_copy(
         update={"by_model": by_model, "estimated_cost_usd": total},
     )
+
+
+def fold_daily(rows: list[DailyModelUsage], table: PriceTable) -> DailyTrends:
+    """Fold per-model-per-day rows into daily totals plus the long-format series.
+
+    A day's total cost stays null when any model serving that day is unpriced,
+    mirroring the overview rule: partial totals would understate spend.
+    """
+    by_model = attach_model_costs(rows, table)
+    totals: dict[str, dict[str, int]] = {}
+    day_costs: dict[str, float] = {}
+    unpriced_days: set[str] = set()
+    for row in by_model:
+        acc = totals.setdefault(row.day, dict.fromkeys(_SUMMARY_KEYS, 0))
+        for key in _SUMMARY_KEYS:
+            acc[key] += getattr(row, key)
+        if row.estimated_cost_usd is None:
+            unpriced_days.add(row.day)
+        else:
+            day_costs[row.day] = day_costs.get(row.day, 0.0) + row.estimated_cost_usd
+
+    days = [
+        DailyUsage(
+            day=day,
+            estimated_cost_usd=None if day in unpriced_days else round(day_costs[day], 6),
+            **totals[day],
+        )
+        for day in sorted(totals)
+    ]
+    return DailyTrends(days=days, by_model=by_model)

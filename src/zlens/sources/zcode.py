@@ -12,7 +12,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from zlens.sources.base import SchemaIncompatible, SourceError, SourceUnavailable
-from zlens.sources.models import MetaInfo, ModelUsageSummary, Overview
+from zlens.sources.models import (
+    DailyModelUsage,
+    MetaInfo,
+    ModelsRanking,
+    ModelUsageSummary,
+    Overview,
+)
 
 # Columns this version aggregates. Kept explicit so upstream schema drift fails
 # loudly here instead of producing silently wrong numbers.
@@ -114,6 +120,44 @@ class ZcodeSource:
             for row in rows
         ]
         return Overview(**{key: totals[key] for key in _AGGREGATE_KEYS}, by_model=by_model)
+
+    def daily_by_model(self) -> list[DailyModelUsage]:
+        with self._cursor() as con:
+            rows = con.execute(
+                "SELECT date(started_at / 1000, 'unixepoch', 'localtime') AS day,"
+                " provider_id, model_id,"
+                f" {_AGGREGATE_SQL}"
+                " FROM model_usage"
+                " GROUP BY day, provider_id, model_id"
+                " ORDER BY day, total_tokens DESC"
+            ).fetchall()
+        return [
+            DailyModelUsage(
+                day=row["day"],
+                provider_id=row["provider_id"] or "unknown",
+                model_id=row["model_id"] or "unknown",
+                **{key: row[key] for key in _AGGREGATE_KEYS},
+            )
+            for row in rows
+        ]
+
+    def models_ranking(self) -> ModelsRanking:
+        with self._cursor() as con:
+            rows = con.execute(
+                f"SELECT provider_id, model_id, {_AGGREGATE_SQL}"
+                " FROM model_usage GROUP BY provider_id, model_id"
+                " ORDER BY total_tokens DESC"
+            ).fetchall()
+        return ModelsRanking(
+            models=[
+                ModelUsageSummary(
+                    provider_id=row["provider_id"] or "unknown",
+                    model_id=row["model_id"] or "unknown",
+                    **{key: row[key] for key in _AGGREGATE_KEYS},
+                )
+                for row in rows
+            ]
+        )
 
     @contextmanager
     def _cursor(self) -> Iterator[sqlite3.Connection]:

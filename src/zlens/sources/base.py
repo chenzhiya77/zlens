@@ -6,7 +6,7 @@ sources plug in without touching the API layer (see docs/specs/v1-spec.md).
 
 from typing import Protocol
 
-from zlens.sources.models import MetaInfo, Overview
+from zlens.sources.models import DailyModelUsage, MetaInfo, ModelsRanking, Overview
 
 
 class SourceError(Exception):
@@ -31,3 +31,7 @@ class SourceAdapter(Protocol):
     def meta(self) -> MetaInfo: ...
 
     def overview(self) -> Overview: ...
+
+    def daily_by_model(self) -> list[DailyModelUsage]: ...
+
+    def models_ranking(self) -> ModelsRanking: ...
