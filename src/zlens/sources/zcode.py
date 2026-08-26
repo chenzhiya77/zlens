@@ -14,10 +14,13 @@ from pathlib import Path
 from zlens.sources.base import SchemaIncompatible, SourceError, SourceUnavailable
 from zlens.sources.models import (
     DailyModelUsage,
+    ErrorGroup,
+    HealthReport,
     MetaInfo,
     ModelsRanking,
     ModelUsageSummary,
     Overview,
+    ProjectModelUsage,
 )
 
 # Columns this version aggregates. Kept explicit so upstream schema drift fails
@@ -26,6 +29,7 @@ _REQUIRED_COLUMNS = {
     "model_usage": {
         "provider_id",
         "model_id",
+        "session_id",
         "started_at",
         "input_tokens",
         "output_tokens",
@@ -33,7 +37,17 @@ _REQUIRED_COLUMNS = {
         "cache_creation_input_tokens",
         "cache_read_input_tokens",
         "computed_total_tokens",
-    }
+        "duration_ms",
+        "time_to_first_token_ms",
+        "retry_count",
+        "cancelled_by_user",
+        "context_exceeded",
+        "error_type",
+        "error_code",
+    },
+    # Joined for the project dimension; required so a missing table degrades
+    # loudly instead of 500-ing from inside the projects query.
+    "session": {"id", "directory", "title"},
 }
 
 _AGGREGATE_SQL = """
@@ -157,6 +171,83 @@ class ZcodeSource:
                 )
                 for row in rows
             ]
+        )
+
+    def usage_by_project_model(self) -> list[ProjectModelUsage]:
+        with self._cursor() as con:
+            rows = con.execute(
+                "SELECT COALESCE(NULLIF(s.directory, ''), '(unknown)') AS directory,"
+                " COALESCE(NULLIF(MAX(s.title), ''), '(untitled)') AS title,"
+                " mu.provider_id AS provider_id, mu.model_id AS model_id,"
+                f" {_AGGREGATE_SQL}"
+                " FROM model_usage mu"
+                " LEFT JOIN session s ON s.id = mu.session_id"
+                " GROUP BY directory, mu.provider_id, mu.model_id"
+                " ORDER BY directory, total_tokens DESC"
+            ).fetchall()
+        return [
+            ProjectModelUsage(
+                directory=row["directory"],
+                title=row["title"],
+                provider_id=row["provider_id"] or "unknown",
+                model_id=row["model_id"] or "unknown",
+                **{key: row[key] for key in _AGGREGATE_KEYS},
+            )
+            for row in rows
+        ]
+
+    def latency_samples(self) -> tuple[list[int], list[int]]:
+        with self._cursor() as con:
+            durations = [
+                row[0]
+                for row in con.execute(
+                    "SELECT duration_ms FROM model_usage"
+                    " WHERE duration_ms IS NOT NULL ORDER BY duration_ms"
+                )
+            ]
+            ttfts = [
+                row[0]
+                for row in con.execute(
+                    "SELECT time_to_first_token_ms FROM model_usage"
+                    " WHERE time_to_first_token_ms IS NOT NULL"
+                    " ORDER BY time_to_first_token_ms"
+                )
+            ]
+        return durations, ttfts
+
+    def health_summary(self) -> HealthReport:
+        with self._cursor() as con:
+            row = con.execute(
+                "SELECT COUNT(*) AS request_count,"
+                " COALESCE(SUM(CASE WHEN retry_count > 0 THEN 1 ELSE 0 END), 0)"
+                "   AS requests_with_retries,"
+                " COALESCE(SUM(retry_count), 0) AS total_retries,"
+                " COALESCE(SUM(CASE WHEN cancelled_by_user = 1 THEN 1 ELSE 0 END), 0)"
+                "   AS cancelled_by_user,"
+                " COALESCE(SUM(CASE WHEN context_exceeded = 1 THEN 1 ELSE 0 END), 0)"
+                "   AS context_exceeded,"
+                " COALESCE(SUM(CASE WHEN error_type IS NOT NULL THEN 1 ELSE 0 END), 0)"
+                "   AS errored_requests"
+                " FROM model_usage"
+            ).fetchone()
+            error_rows = con.execute(
+                "SELECT error_type, error_code, COUNT(*) AS n"
+                " FROM model_usage WHERE error_type IS NOT NULL"
+                " GROUP BY error_type, error_code ORDER BY n DESC, error_type"
+            ).fetchall()
+        return HealthReport(
+            request_count=row["request_count"],
+            requests_with_retries=row["requests_with_retries"],
+            total_retries=row["total_retries"],
+            cancelled_by_user=row["cancelled_by_user"],
+            context_exceeded=row["context_exceeded"],
+            errored_requests=row["errored_requests"],
+            errors=[
+                ErrorGroup(
+                    error_type=r["error_type"], error_code=r["error_code"], request_count=r["n"]
+                )
+                for r in error_rows
+            ],
         )
 
     @contextmanager

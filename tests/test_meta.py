@@ -8,8 +8,8 @@ from zlens.core.config import Settings
 
 def test_meta_reports_count_and_local_time_range(client_factory):
     rows = [
-        ("p", "m1", 1_700_000_000_000, 10, 5, 0, 0, 0, 15),
-        ("p", "m1", 1_700_000_100_000, 20, 5, 0, 0, 0, 25),
+        {"provider_id": "p", "model_id": "m1", "started_at": 1_700_000_000_000},
+        {"provider_id": "p", "model_id": "m1", "started_at": 1_700_000_100_000},
     ]
     body = client_factory(rows).get("/api/meta").json()
 

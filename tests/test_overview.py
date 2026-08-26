@@ -1,8 +1,31 @@
 def test_overview_totals_and_by_model_ranking(client_factory):
     rows = [
-        ("anthropic", "claude-a", 1, 100, 10, 5, 20, 1000, 1135),
-        ("anthropic", "claude-a", 2, 50, 5, 0, 0, 500, 555),
-        ("openai", "gpt-b", 3, 10, 2, 1, 0, 0, 13),
+        {
+            "provider_id": "anthropic",
+            "model_id": "claude-a",
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "reasoning_tokens": 5,
+            "cache_creation_input_tokens": 20,
+            "cache_read_input_tokens": 1000,
+            "computed_total_tokens": 1135,
+        },
+        {
+            "provider_id": "anthropic",
+            "model_id": "claude-a",
+            "input_tokens": 50,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 500,
+            "computed_total_tokens": 555,
+        },
+        {
+            "provider_id": "openai",
+            "model_id": "gpt-b",
+            "input_tokens": 10,
+            "output_tokens": 2,
+            "reasoning_tokens": 1,
+            "computed_total_tokens": 13,
+        },
     ]
     body = client_factory(rows).get("/api/overview").json()
 
@@ -32,7 +55,7 @@ def test_overview_on_empty_database(client_factory):
 
 
 def test_overview_maps_missing_identity_to_unknown(client_factory):
-    rows = [(None, None, 1, 1, 1, 0, 0, 0, 2)]
+    rows = [{"provider_id": None, "model_id": None, "computed_total_tokens": 2}]
     body = client_factory(rows).get("/api/overview").json()
 
     assert body["by_model"][0]["provider_id"] == "unknown"

@@ -1,7 +1,8 @@
 """Synthetic ZCode database fixtures mirroring the schema zlens queries.
 
-Offline by default: no test may touch the real ~/.zcode database unless it is
-marked `live` (see AGENTS.md).
+Rows are dicts keyed by column name; unspecified columns fall back to the
+table defaults (0 for token counters, NULL for timestamps/errors). Offline by
+default: no test may touch the real ~/.zcode database unless marked `live`.
 """
 
 import sqlite3
@@ -18,29 +19,49 @@ CREATE TABLE model_usage (
     id INTEGER PRIMARY KEY,
     provider_id TEXT,
     model_id TEXT,
+    session_id TEXT,
     started_at INTEGER,
     input_tokens INTEGER DEFAULT 0,
     output_tokens INTEGER DEFAULT 0,
     reasoning_tokens INTEGER DEFAULT 0,
     cache_creation_input_tokens INTEGER DEFAULT 0,
     cache_read_input_tokens INTEGER DEFAULT 0,
-    computed_total_tokens INTEGER DEFAULT 0
+    computed_total_tokens INTEGER DEFAULT 0,
+    duration_ms INTEGER,
+    time_to_first_token_ms INTEGER,
+    retry_count INTEGER DEFAULT 0,
+    cancelled_by_user INTEGER DEFAULT 0,
+    context_exceeded INTEGER DEFAULT 0,
+    error_type TEXT,
+    error_code TEXT
 )
 """
 
-_INSERT = """
-INSERT INTO model_usage
-    (provider_id, model_id, started_at, input_tokens, output_tokens, reasoning_tokens,
-     cache_creation_input_tokens, cache_read_input_tokens, computed_total_tokens)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+_CREATE_SESSION = """
+CREATE TABLE session (
+    id TEXT PRIMARY KEY,
+    directory TEXT,
+    title TEXT
+)
 """
 
 
-def write_db(path: Path, rows) -> Path:
+def write_db(path: Path, rows, sessions=()) -> Path:
     con = sqlite3.connect(path)
     try:
         con.execute(_CREATE_MODEL_USAGE)
-        con.executemany(_INSERT, rows)
+        con.execute(_CREATE_SESSION)
+        for row in rows:
+            columns = list(row)
+            if not columns:
+                con.execute("INSERT INTO model_usage DEFAULT VALUES")
+                continue
+            placeholders = ", ".join("?" * len(columns))
+            con.execute(
+                f"INSERT INTO model_usage ({', '.join(columns)}) VALUES ({placeholders})",
+                [row[c] for c in columns],
+            )
+        con.executemany("INSERT INTO session (id, directory, title) VALUES (?, ?, ?)", sessions)
         con.commit()
     finally:
         con.close()
@@ -51,8 +72,8 @@ def write_db(path: Path, rows) -> Path:
 def make_db(tmp_path):
     """Factory: build a synthetic ZCode database, return its path."""
 
-    def _make(rows):
-        return write_db(tmp_path / "zcode.sqlite", rows)
+    def _make(rows=(), sessions=()):
+        return write_db(tmp_path / "zcode.sqlite", rows, sessions)
 
     return _make
 
@@ -61,7 +82,7 @@ def make_db(tmp_path):
 def client_factory(make_db):
     """Factory: app + TestClient bound to a synthetic database."""
 
-    def _make(rows):
-        return TestClient(create_app(Settings(db_path=make_db(rows))))
+    def _make(rows=(), sessions=()):
+        return TestClient(create_app(Settings(db_path=make_db(rows, sessions))))
 
     return _make

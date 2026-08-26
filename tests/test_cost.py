@@ -6,9 +6,20 @@ from zlens.api.app import create_app
 from zlens.core.config import Settings
 
 _ROWS = [
-    # provider, model, started_at, input, output, reasoning, cache_write, cache_read, total
-    ("p", "priced", 1, 1_000_000, 100_000, 0, 200_000, 2_000_000, 3_300_000),
-    ("p", "unpriced", 2, 500_000, 50_000, 0, 0, 0, 550_000),
+    {
+        "model_id": "priced",
+        "input_tokens": 1_000_000,
+        "output_tokens": 100_000,
+        "cache_creation_input_tokens": 200_000,
+        "cache_read_input_tokens": 2_000_000,
+        "computed_total_tokens": 3_300_000,
+    },
+    {
+        "model_id": "unpriced",
+        "input_tokens": 500_000,
+        "output_tokens": 50_000,
+        "computed_total_tokens": 550_000,
+    },
 ]
 
 _PRICES = {"priced": {"input": 3.0, "output": 15.0, "cache_read": 0.3, "cache_write": 3.75}}

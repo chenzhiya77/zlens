@@ -12,7 +12,15 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from zlens.sources.models import DailyModelUsage, DailyTrends, DailyUsage, Overview
+from zlens.sources.models import (
+    DailyModelUsage,
+    DailyTrends,
+    DailyUsage,
+    Overview,
+    ProjectModelUsage,
+    ProjectsReport,
+    ProjectUsage,
+)
 
 _TOKENS_PER_PRICE_UNIT = 1_000_000
 
@@ -92,6 +100,43 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     return overview.model_copy(
         update={"by_model": by_model, "estimated_cost_usd": total},
     )
+
+
+def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsReport:
+    """Fold per-model-per-project rows into project totals.
+
+    Same honesty rule as the daily fold: a project's cost stays null while any
+    model contributing to it is unpriced.
+    """
+    priced_rows = attach_model_costs(rows, table)
+    totals: dict[str, dict[str, int]] = {}
+    titles: dict[str, str] = {}
+    project_costs: dict[str, float] = {}
+    unpriced_projects: set[str] = set()
+    for row in priced_rows:
+        acc = totals.setdefault(row.directory, dict.fromkeys(_SUMMARY_KEYS, 0))
+        titles.setdefault(row.directory, row.title)
+        for key in _SUMMARY_KEYS:
+            acc[key] += getattr(row, key)
+        if row.estimated_cost_usd is None:
+            unpriced_projects.add(row.directory)
+        else:
+            project_costs[row.directory] = (
+                project_costs.get(row.directory, 0.0) + row.estimated_cost_usd
+            )
+
+    projects = [
+        ProjectUsage(
+            directory=directory,
+            title=titles[directory],
+            estimated_cost_usd=(
+                None if directory in unpriced_projects else round(project_costs[directory], 6)
+            ),
+            **totals[directory],
+        )
+        for directory in sorted(totals, key=lambda d: totals[d]["total_tokens"], reverse=True)
+    ]
+    return ProjectsReport(projects=projects)
 
 
 def fold_daily(rows: list[DailyModelUsage], table: PriceTable) -> DailyTrends:

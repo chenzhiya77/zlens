@@ -16,9 +16,30 @@ def _local_day(ms: int) -> str:
 
 def _rows():
     return [
-        ("p", "alpha", _MS_DAY1_A, 100, 10, 0, 0, 1000, 1110),
-        ("p", "beta", _MS_DAY1_B, 200, 20, 0, 0, 2000, 2220),
-        ("p", "alpha", _MS_DAY2, 300, 30, 0, 0, 3000, 3330),
+        {
+            "model_id": "alpha",
+            "started_at": _MS_DAY1_A,
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 1000,
+            "computed_total_tokens": 1110,
+        },
+        {
+            "model_id": "beta",
+            "started_at": _MS_DAY1_B,
+            "input_tokens": 200,
+            "output_tokens": 20,
+            "cache_read_input_tokens": 2000,
+            "computed_total_tokens": 2220,
+        },
+        {
+            "model_id": "alpha",
+            "started_at": _MS_DAY2,
+            "input_tokens": 300,
+            "output_tokens": 30,
+            "cache_read_input_tokens": 3000,
+            "computed_total_tokens": 3330,
+        },
     ]
 
 

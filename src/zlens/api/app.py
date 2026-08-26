@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from zlens import __version__
-from zlens.api.routers import meta, models, overview, trends
+from zlens.api.routers import health, meta, models, overview, performance, projects, trends
 from zlens.core.config import Settings, load_settings
 from zlens.sources.base import SourceError, SourceUnavailable
 from zlens.sources.zcode import ZcodeSource
@@ -34,6 +34,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(overview.router)
     app.include_router(trends.router)
     app.include_router(models.router)
+    app.include_router(projects.router)
+    app.include_router(performance.router)
+    app.include_router(health.router)
     return app
 
 
