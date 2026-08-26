@@ -19,6 +19,7 @@ from zlens.core.config import Settings, load_settings
 from zlens.sources.base import SourceError, SourceUnavailable
 from zlens.sources.minimax import MinimaxSource
 from zlens.sources.multi import MultiSource
+from zlens.sources.opencode import OpencodeSource
 from zlens.sources.zcode import ZcodeSource
 
 # Built by `make build-web` (frontend/ → ../src/zlens/web/static_dist).
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         [
             ZcodeSource(settings.db_path),
             MinimaxSource(settings.minimax_sessions_dir),
+            OpencodeSource(settings.opencode_db_path),
         ]
     )
 

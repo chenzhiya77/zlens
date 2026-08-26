@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 
 class ModelUsageSummary(BaseModel):
-    source: str
+    source: str = "zcode"
     provider_id: str
     model_id: str
     request_count: int

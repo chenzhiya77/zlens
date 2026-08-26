@@ -134,16 +134,63 @@ def make_minimax_sessions(tmp_path):
 
 
 @pytest.fixture
-def make_settings(tmp_path, make_db, make_minimax_sessions):
+def make_opencode_db(tmp_path):
+    """Factory: build a minimal opencode SQLite database with JSON messages."""
+
+    def _make(messages, sessions=()):
+        path = tmp_path / "opencode.db"
+        con = sqlite3.connect(path)
+        try:
+            con.execute(
+                "CREATE TABLE session ("
+                "id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, title TEXT)"
+            )
+            con.execute(
+                "CREATE TABLE message ("
+                "id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER,"
+                " time_updated INTEGER, data TEXT)"
+            )
+            con.executemany(
+                "INSERT INTO session (id, project_id, directory, title) VALUES (?, ?, ?, ?)",
+                sessions,
+            )
+            con.executemany(
+                "INSERT INTO message (id, session_id, time_created, time_updated, data) "
+                "VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        message["id"],
+                        message["session_id"],
+                        message.get("created", 0),
+                        message.get("created", 0),
+                        json.dumps(message["data"]),
+                    )
+                    for message in messages
+                ],
+            )
+            con.commit()
+        finally:
+            con.close()
+        return path
+
+    return _make
+
+
+@pytest.fixture
+def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
     """Settings where only the explicitly built sources exist."""
 
-    def _make(rows=(), sessions=(), minimax=()):
+    def _make(rows=(), sessions=(), minimax=(), opencode=None, opencode_sessions=()):
         return Settings(
             db_path=make_db(rows, sessions),
             minimax_sessions_dir=(
                 make_minimax_sessions(minimax) if minimax else tmp_path / "minimax-missing"
             ),
-            opencode_db_path=tmp_path / "opencode-missing.db",
+            opencode_db_path=(
+                make_opencode_db(opencode, opencode_sessions)
+                if opencode is not None
+                else tmp_path / "opencode-missing.db"
+            ),
         )
 
     return _make
