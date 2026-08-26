@@ -1,10 +1,14 @@
-"""Synthetic ZCode database fixtures mirroring the schema zlens queries.
+"""Synthetic source fixtures mirroring the formats zlens reads.
 
 Rows are dicts keyed by column name; unspecified columns fall back to the
 table defaults (0 for token counters, NULL for timestamps/errors). Offline by
-default: no test may touch the real ~/.zcode database unless marked `live`.
+default: no test may touch real agent data unless marked `live`.
+
+Multi-source isolation: Settings always pin the other sources to nonexistent
+paths so a test only ever sees what it built.
 """
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -79,10 +83,77 @@ def make_db(tmp_path):
 
 
 @pytest.fixture
-def client_factory(make_db):
-    """Factory: app + TestClient bound to a synthetic database."""
+def make_minimax_sessions(tmp_path):
+    """Factory: build a synthetic MiniMax sessions directory, return its path."""
 
-    def _make(rows=(), sessions=()):
-        return TestClient(create_app(Settings(db_path=make_db(rows, sessions))))
+    def _make(sessions):
+        root = tmp_path / "minimax" / "v2" / "sessions"
+        for index, spec in enumerate(sessions):
+            sdir = root / "2026" / "08" / "04" / f"{index:02d}-00-00-000-session_fx{index}"
+            sdir.mkdir(parents=True)
+            lines = []
+            workspace = spec.get("workspace")
+            if workspace is not None:
+                lines.append(
+                    json.dumps(
+                        {
+                            "kind": "session.created",
+                            "createdAtMs": spec["events"][0]["ms"],
+                            "record": {"workspaceDir": workspace},
+                        }
+                    )
+                )
+            for event in spec["events"]:
+                lines.append(
+                    json.dumps(
+                        {
+                            "kind": "message.update",
+                            "createdAtMs": event["ms"],
+                            "messages": [
+                                {
+                                    "usage": {
+                                        "input": event["input"],
+                                        "output": event["output"],
+                                        "cacheRead": event.get("cache_read", 0),
+                                        "cacheWrite": event.get("cache_write", 0),
+                                        "totalTokens": event["total"],
+                                    }
+                                }
+                            ],
+                        }
+                    )
+                )
+            (sdir / "ledger.jsonl").write_text("\n".join(lines), encoding="utf-8")
+            if spec.get("model"):
+                (sdir / "display.jsonl").write_text(
+                    json.dumps({"model": spec["model"]}) + "\n", encoding="utf-8"
+                )
+        return root
+
+    return _make
+
+
+@pytest.fixture
+def make_settings(tmp_path, make_db, make_minimax_sessions):
+    """Settings where only the explicitly built sources exist."""
+
+    def _make(rows=(), sessions=(), minimax=()):
+        return Settings(
+            db_path=make_db(rows, sessions),
+            minimax_sessions_dir=(
+                make_minimax_sessions(minimax) if minimax else tmp_path / "minimax-missing"
+            ),
+            opencode_db_path=tmp_path / "opencode-missing.db",
+        )
+
+    return _make
+
+
+@pytest.fixture
+def client_factory(make_settings):
+    """Factory: app + TestClient bound to synthetic sources."""
+
+    def _make(rows=(), sessions=(), minimax=()):
+        return TestClient(create_app(make_settings(rows, sessions, minimax)))
 
     return _make

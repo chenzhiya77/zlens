@@ -3,10 +3,10 @@
 from fastapi import Request
 
 from zlens.core.config import Settings
-from zlens.sources.base import SourceAdapter
+from zlens.sources.multi import MultiSource
 
 
-def get_source(request: Request) -> SourceAdapter:
+def get_source(request: Request) -> MultiSource:
     return request.app.state.source
 
 

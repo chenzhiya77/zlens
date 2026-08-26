@@ -111,11 +111,13 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
     priced_rows = attach_model_costs(rows, table)
     totals: dict[str, dict[str, int]] = {}
     titles: dict[str, str] = {}
+    project_sources: dict[str, set[str]] = {}
     project_costs: dict[str, float] = {}
     unpriced_projects: set[str] = set()
     for row in priced_rows:
         acc = totals.setdefault(row.directory, dict.fromkeys(_SUMMARY_KEYS, 0))
         titles.setdefault(row.directory, row.title)
+        project_sources.setdefault(row.directory, set()).add(row.source)
         for key in _SUMMARY_KEYS:
             acc[key] += getattr(row, key)
         if row.estimated_cost_usd is None:
@@ -129,6 +131,7 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
         ProjectUsage(
             directory=directory,
             title=titles[directory],
+            source="+".join(sorted(project_sources[directory])),
             estimated_cost_usd=(
                 None if directory in unpriced_projects else round(project_costs[directory], 6)
             ),
@@ -148,9 +151,11 @@ def fold_daily(rows: list[DailyModelUsage], table: PriceTable) -> DailyTrends:
     by_model = attach_model_costs(rows, table)
     totals: dict[str, dict[str, int]] = {}
     day_costs: dict[str, float] = {}
+    day_sources: dict[str, set[str]] = {}
     unpriced_days: set[str] = set()
     for row in by_model:
         acc = totals.setdefault(row.day, dict.fromkeys(_SUMMARY_KEYS, 0))
+        day_sources.setdefault(row.day, set()).add(row.source)
         for key in _SUMMARY_KEYS:
             acc[key] += getattr(row, key)
         if row.estimated_cost_usd is None:
@@ -161,6 +166,7 @@ def fold_daily(rows: list[DailyModelUsage], table: PriceTable) -> DailyTrends:
     days = [
         DailyUsage(
             day=day,
+            source="+".join(sorted(day_sources[day])),
             estimated_cost_usd=None if day in unpriced_days else round(day_costs[day], 6),
             **totals[day],
         )

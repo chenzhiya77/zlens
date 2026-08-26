@@ -17,6 +17,8 @@ from zlens import __version__
 from zlens.api.routers import health, meta, models, overview, performance, projects, trends
 from zlens.core.config import Settings, load_settings
 from zlens.sources.base import SourceError, SourceUnavailable
+from zlens.sources.minimax import MinimaxSource
+from zlens.sources.multi import MultiSource
 from zlens.sources.zcode import ZcodeSource
 
 # Built by `make build-web` (frontend/ → ../src/zlens/web/static_dist).
@@ -27,7 +29,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
     app = FastAPI(title="zlens", version=__version__)
     app.state.settings = settings
-    app.state.source = ZcodeSource(settings.db_path)
+    app.state.source = MultiSource(
+        [
+            ZcodeSource(settings.db_path),
+            MinimaxSource(settings.minimax_sessions_dir),
+        ]
+    )
 
     @app.exception_handler(SourceError)
     async def source_error_handler(request: Request, exc: SourceError) -> JSONResponse:

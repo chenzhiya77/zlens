@@ -8,10 +8,10 @@ SourceError instead of leaking a traceback (architecture rule in AGENTS.md).
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
-from zlens.sources.base import SchemaIncompatible, SourceError, SourceUnavailable
+from zlens.sources.base import SchemaIncompatible, SourceUnavailable
 from zlens.sources.models import (
     DailyModelUsage,
     ErrorGroup,
@@ -22,6 +22,7 @@ from zlens.sources.models import (
     Overview,
     ProjectModelUsage,
 )
+from zlens.sources.timeutil import ms_to_datetime as _ms_to_datetime
 
 # Columns this version aggregates. Kept explicit so upstream schema drift fails
 # loudly here instead of producing silently wrong numbers.
@@ -71,17 +72,6 @@ _AGGREGATE_KEYS = (
 )
 
 
-_EPOCH_UTC = datetime(1970, 1, 1, tzinfo=UTC)
-
-
-def _ms_to_datetime(ms: int | None) -> datetime | None:
-    # Pure epoch arithmetic + tz conversion: Windows CRT localtime() raises
-    # OSError 22 for timestamps near the epoch, so fromtimestamp() is unusable.
-    if ms is None:
-        return None
-    return (_EPOCH_UTC + timedelta(milliseconds=ms)).astimezone()
-
-
 class ZcodeSource:
     id = "zcode"
 
@@ -89,11 +79,10 @@ class ZcodeSource:
         self._db_path = db_path
 
     def is_available(self) -> bool:
-        try:
-            with self._cursor():
-                return True
-        except SourceError:
-            return False
+        # Let SourceError subclasses propagate: the composite needs the specific
+        # reason (unavailable vs schema_incompatible) to degrade accurately.
+        with self._cursor():
+            return True
 
     def model_ids(self) -> list[str]:
         with self._cursor() as con:
@@ -127,6 +116,7 @@ class ZcodeSource:
             ).fetchall()
         by_model = [
             ModelUsageSummary(
+                source=self.id,
                 provider_id=row["provider_id"] or "unknown",
                 model_id=row["model_id"] or "unknown",
                 **{key: row[key] for key in _AGGREGATE_KEYS},
@@ -147,6 +137,7 @@ class ZcodeSource:
             ).fetchall()
         return [
             DailyModelUsage(
+                source=self.id,
                 day=row["day"],
                 provider_id=row["provider_id"] or "unknown",
                 model_id=row["model_id"] or "unknown",
@@ -165,6 +156,7 @@ class ZcodeSource:
         return ModelsRanking(
             models=[
                 ModelUsageSummary(
+                    source=self.id,
                     provider_id=row["provider_id"] or "unknown",
                     model_id=row["model_id"] or "unknown",
                     **{key: row[key] for key in _AGGREGATE_KEYS},
@@ -187,6 +179,7 @@ class ZcodeSource:
             ).fetchall()
         return [
             ProjectModelUsage(
+                source=self.id,
                 directory=row["directory"],
                 title=row["title"],
                 provider_id=row["provider_id"] or "unknown",
@@ -244,7 +237,10 @@ class ZcodeSource:
             errored_requests=row["errored_requests"],
             errors=[
                 ErrorGroup(
-                    error_type=r["error_type"], error_code=r["error_code"], request_count=r["n"]
+                    source=self.id,
+                    error_type=r["error_type"],
+                    error_code=r["error_code"],
+                    request_count=r["n"],
                 )
                 for r in error_rows
             ],

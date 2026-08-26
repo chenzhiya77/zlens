@@ -1,4 +1,8 @@
-"""Data contracts produced by source adapters and served by the API."""
+"""Data contracts produced by source adapters and served by the API.
+
+Row-level models carry `source` so multi-source merges stay attributable
+(see docs/specs/v2-multi-source-spec.md).
+"""
 
 from datetime import datetime
 
@@ -6,6 +10,7 @@ from pydantic import BaseModel
 
 
 class ModelUsageSummary(BaseModel):
+    source: str
     provider_id: str
     model_id: str
     request_count: int
@@ -30,7 +35,17 @@ class Overview(BaseModel):
     by_model: list[ModelUsageSummary]
 
 
+class MetaInfo(BaseModel):
+    source_id: str
+    request_count: int
+    first_request_at: datetime | None
+    last_request_at: datetime | None
+    generated_at: datetime
+    unpriced_models: list[str] = []
+
+
 class DailyUsage(BaseModel):
+    source: str
     day: str
     request_count: int
     input_tokens: int
@@ -43,6 +58,7 @@ class DailyUsage(BaseModel):
 
 
 class DailyModelUsage(BaseModel):
+    source: str
     day: str
     provider_id: str
     model_id: str
@@ -66,6 +82,7 @@ class ModelsRanking(BaseModel):
 
 
 class ProjectModelUsage(BaseModel):
+    source: str
     directory: str
     title: str
     provider_id: str
@@ -81,6 +98,7 @@ class ProjectModelUsage(BaseModel):
 
 
 class ProjectUsage(BaseModel):
+    source: str
     directory: str
     title: str
     request_count: int
@@ -111,6 +129,7 @@ class PerformanceReport(BaseModel):
 
 
 class ErrorGroup(BaseModel):
+    source: str
     error_type: str
     error_code: str | None
     request_count: int
@@ -124,12 +143,3 @@ class HealthReport(BaseModel):
     context_exceeded: int
     errored_requests: int
     errors: list[ErrorGroup]
-
-
-class MetaInfo(BaseModel):
-    source_id: str
-    request_count: int
-    first_request_at: datetime | None
-    last_request_at: datetime | None
-    generated_at: datetime
-    unpriced_models: list[str] = []

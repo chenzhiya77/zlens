@@ -35,7 +35,12 @@ def test_meta_on_empty_database(client_factory):
 
 
 def test_missing_database_reports_source_unavailable(tmp_path):
-    client = TestClient(create_app(Settings(db_path=tmp_path / "absent.sqlite")))
+    settings = Settings(
+        db_path=tmp_path / "absent.sqlite",
+        minimax_sessions_dir=tmp_path / "minimax-missing",
+        opencode_db_path=tmp_path / "opencode-missing.db",
+    )
+    client = TestClient(create_app(settings))
 
     response = client.get("/api/meta")
 
@@ -52,7 +57,15 @@ def test_broken_schema_reports_schema_incompatible(tmp_path):
     con.commit()
     con.close()
 
-    client = TestClient(create_app(Settings(db_path=path)))
+    client = TestClient(
+        create_app(
+            Settings(
+                db_path=path,
+                minimax_sessions_dir=tmp_path / "minimax-missing",
+                opencode_db_path=tmp_path / "opencode-missing.db",
+            )
+        )
+    )
 
     response = client.get("/api/meta")
 

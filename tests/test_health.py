@@ -20,8 +20,8 @@ def test_health_counts_retries_errors_cancels_and_context(client_factory):
     assert body["errored_requests"] == 2
     assert body["errors"] == [
         # Counts tie at 1; ties break by error_type ascending for stable output.
-        {"error_type": "context_length", "error_code": None, "request_count": 1},
-        {"error_type": "rate_limit", "error_code": "429", "request_count": 1},
+        {"source": "zcode", "error_type": "context_length", "error_code": None, "request_count": 1},
+        {"source": "zcode", "error_type": "rate_limit", "error_code": "429", "request_count": 1},
     ]
 
 

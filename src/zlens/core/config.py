@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     db_path: Path = DEFAULT_DB_PATH
     pricing_path: Path = Path("pricing.json")
+    minimax_sessions_dir: Path = Path.home() / ".minimax" / "v2" / "sessions"
+    opencode_db_path: Path = Path.home() / ".local" / "share" / "opencode" / "opencode.db"
     host: str = "127.0.0.1"
     port: int = 8000
 

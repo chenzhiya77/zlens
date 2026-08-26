@@ -33,7 +33,14 @@ def _client(make_db, rows, tmp_path, prices=None, raw=None):
         pricing_path.write_text(raw, encoding="utf-8")
     elif prices is not None:
         pricing_path.write_text(json.dumps({"version": 1, "models": prices}), encoding="utf-8")
-    app = create_app(Settings(db_path=make_db(rows), pricing_path=pricing_path))
+    app = create_app(
+        Settings(
+            db_path=make_db(rows),
+            pricing_path=pricing_path,
+            minimax_sessions_dir=tmp_path / "minimax-missing",
+            opencode_db_path=tmp_path / "opencode-missing.db",
+        )
+    )
     return TestClient(app)
 
 
@@ -77,7 +84,14 @@ def test_price_edit_takes_effect_without_restart(make_db, tmp_path):
     pricing_path = tmp_path / "pricing.json"
     pricing_path.write_text(json.dumps({"version": 1, "models": _PRICES}), encoding="utf-8")
     client = TestClient(
-        create_app(Settings(db_path=make_db([_ROWS[0]]), pricing_path=pricing_path))
+        create_app(
+            Settings(
+                db_path=make_db([_ROWS[0]]),
+                pricing_path=pricing_path,
+                minimax_sessions_dir=tmp_path / "minimax-missing",
+                opencode_db_path=tmp_path / "opencode-missing.db",
+            )
+        )
     )
 
     assert client.get("/api/overview").json()["estimated_cost_usd"] == _PRICED_COST

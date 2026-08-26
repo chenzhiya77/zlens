@@ -1,17 +1,19 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from zlens.api.deps import get_settings, get_source
 from zlens.core.config import Settings
 from zlens.core.cost import PriceTable, enrich_overview
-from zlens.sources.base import SourceAdapter
 from zlens.sources.models import Overview
+from zlens.sources.multi import MultiSource
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
 
 @router.get("/overview", response_model=Overview)
 def get_overview(
-    source: SourceAdapter = Depends(get_source),
+    store: MultiSource = Depends(get_source),
     settings: Settings = Depends(get_settings),
+    source: str | None = Query(default=None),
 ) -> Overview:
-    return enrich_overview(source.overview(), PriceTable.load(settings.pricing_path))
+    table = PriceTable.load(settings.pricing_path)
+    return enrich_overview(store.select(source).overview(), table)
