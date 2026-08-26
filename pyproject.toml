@@ -29,7 +29,10 @@ packages = ["src/zlens"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Offline by default: tests touching the real ~/.zcode database are marked `live`.
-addopts = "-m 'not live'"
+# basetemp stays inside the repo: the user-level %TEMP%\pytest-of-* root can be
+# owned by an elevated process on Windows, which makes tmp_path fail with
+# PermissionError (observed 2026-08-26).
+addopts = "-m 'not live' --basetemp=.pytest_tmp"
 markers = [
     "live: touches the real ~/.zcode/cli/db/db.sqlite (excluded by default)",
 ]

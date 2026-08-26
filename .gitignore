@@ -22,3 +22,6 @@ logs/
 *.log
 .DS_Store
 Thumbs.db
+
+# pytest basetemp (see pyproject.toml)
+.pytest_tmp/
