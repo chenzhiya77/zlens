@@ -8,7 +8,7 @@ SourceError instead of leaking a traceback (architecture rule in AGENTS.md).
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from zlens.sources.base import SchemaIncompatible, SourceError, SourceUnavailable
@@ -51,8 +51,15 @@ _AGGREGATE_KEYS = (
 )
 
 
+_EPOCH_UTC = datetime(1970, 1, 1, tzinfo=UTC)
+
+
 def _ms_to_datetime(ms: int | None) -> datetime | None:
-    return None if ms is None else datetime.fromtimestamp(ms / 1000).astimezone()
+    # Pure epoch arithmetic + tz conversion: Windows CRT localtime() raises
+    # OSError 22 for timestamps near the epoch, so fromtimestamp() is unusable.
+    if ms is None:
+        return None
+    return (_EPOCH_UTC + timedelta(milliseconds=ms)).astimezone()
 
 
 class ZcodeSource:
@@ -67,6 +74,13 @@ class ZcodeSource:
                 return True
         except SourceError:
             return False
+
+    def model_ids(self) -> list[str]:
+        with self._cursor() as con:
+            rows = con.execute(
+                "SELECT DISTINCT model_id FROM model_usage WHERE model_id IS NOT NULL"
+            ).fetchall()
+        return sorted(row["model_id"] for row in rows)
 
     def meta(self) -> MetaInfo:
         with self._cursor() as con:
