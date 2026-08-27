@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from zlens.api.deps import get_settings
-from zlens.core.config import Settings
+from zlens.core.config import Settings, with_config_overlay
 from zlens.core.cost import PriceTable
 
 router = APIRouter(prefix="/api", tags=["pricing"])
@@ -43,6 +43,9 @@ def put_pricing(
 
 class ExtractPayload(BaseModel):
     image_base64: str
+    # Optional: when set, tell the VLM to extract only this model's price
+    # (the per-model paste windows in the UI must not touch other rows).
+    focus_model: str | None = None
 
 
 _EXTRACT_PROMPT = """\
@@ -56,6 +59,16 @@ _EXTRACT_PROMPT = """\
 - 若截图标注"每 1k tokens"，换算为每 1M tokens（乘以 1000）；无法换算的字段用 null。
 - 截图未写明的字段用 null，不要编造。若图中没有价格表，输出 {"models":[]}。
 """
+
+
+def _prompt_for(focus_model: str | None) -> str:
+    prompt = _EXTRACT_PROMPT
+    if focus_model:
+        prompt += (
+            f"\n- 本次只关心模型「{focus_model}」的单价:图中若有多个模型,"
+            '只输出该模型的一行;若图中没有该模型,输出 {"models":[]}。'
+        )
+    return prompt
 
 
 def _extract_number(value) -> float | None:
@@ -108,10 +121,13 @@ def extract_pricing(
 ) -> dict:
     from zlens.core.vlm import VlmCallFailed, VlmUnconfigured, chat
 
+    # Re-apply the gitignored config file so a save made after server startup
+    # is visible to this request (the app snapshot still holds pre-save values).
+    settings = with_config_overlay(settings)
     try:
         content = chat(
             settings,
-            text=_EXTRACT_PROMPT,
+            text=_prompt_for(payload.focus_model),
             image_base64=payload.image_base64,
         )
     except VlmUnconfigured as exc:

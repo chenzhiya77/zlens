@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from zlens.api.deps import get_settings
-from zlens.core.config import Settings
+from zlens.core.config import Settings, with_config_overlay
 from zlens.core.vlm import VlmCallFailed, VlmUnconfigured, chat
 
 router = APIRouter(prefix="/api", tags=["settings"])
@@ -67,6 +67,10 @@ def put_vlm_settings(
 
 @router.post("/settings/vlm/test")
 def test_vlm(settings: Settings = Depends(get_settings)) -> dict:
+    # Re-read the gitignored config file so a save made after server startup
+    # (or an API-key rotation) is visible to this request. create_app overlays
+    # once at boot; live requests need the overlay applied again here.
+    settings = with_config_overlay(settings)
     try:
         reply = chat(settings, text="Reply with exactly: OK")
     except VlmUnconfigured as exc:

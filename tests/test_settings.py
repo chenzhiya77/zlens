@@ -109,6 +109,40 @@ def test_pricing_extract_parses_vlm_json(client_factory, monkeypatch):
     ]
 
 
+def test_pricing_extract_forwards_focus_model(client_factory, monkeypatch):
+    from zlens.core import vlm as vlm_mod
+
+    prompts: list[str] = []
+
+    def fake_chat(settings, *, text=None, image_base64=None):
+        prompts.append(text or "")
+        return (
+            '{"currency":"USD","unit":"per_1M_tokens","models":['
+            '{"model_id":"demo-model","input":2.5,"output":10.0,"'
+            'cache_read":null,"cache_write":null}]}'
+        )
+
+    monkeypatch.setattr(vlm_mod, "chat", fake_chat)
+
+    client = client_factory(rows=[])
+    client.put(
+        "/api/settings/vlm",
+        json={"base_url": "http://vlm.test/v1", "model": "m", "api_key": "sk-x"},
+    )
+
+    body = client.post(
+        "/api/pricing/extract",
+        json={"image_base64": "AAAA", "focus_model": "demo-model"},
+    ).json()
+    client.post("/api/pricing/extract", json={"image_base64": "AAAA"})
+
+    assert body["models"][0]["model_id"] == "demo-model"
+    # The targeting hint appears only when focus_model is explicit; a plain
+    # request keeps the original prompt (backward compatible).
+    assert "demo-model" in prompts[0]
+    assert "demo-model" not in prompts[1]
+
+
 def test_pricing_extract_unparsable_returns_422(client_factory, monkeypatch):
     from zlens.core import vlm as vlm_mod
 
