@@ -19,3 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - v1 需求规格 `docs/specs/v1-spec.md` 与实施票 `docs/plans/tickets/`。
 - 只读查询 API:`/api/meta`、`/api/overview`(含价格表成本估算)、`/api/trends/daily`、
   `/api/models`、`/api/projects`、`/api/performance`(P50/P90/P99)、`/api/health`。
+- VLM 截图识别:设置页可配置视觉语言模型(OpenAI 兼容,密钥只存本机 gitignored 配置);
+  价格表页按模型粘贴单价截图,识别结果只预填被选中的那一行,互不影响。
+- 主题设置:设置页新增「主题」区块——深色/浅色外观切换 + 六种主题色(天蓝/青色/翡翠/
+  靛紫/琥珀/玫红),选择立即生效并保存在本机浏览器(localStorage)。
+
+### Fixed
+
+- VLM 配置保存后「测试连接 / 截图识别」立即生效(重新叠加本机配置,不再使用服务启动时快照)。
+- 浏览器自动填充会把输入框(如 VLM API Key)涂成白色底,现与页面主题一致(深/浅色均保持)。
+- 密钥安全:`zlens.config.json`(含 VLM Key)不再纳入版本库跟踪(gitignore)。
