@@ -3,6 +3,15 @@ import { useEffect, useState } from "react";
 
 import { fetchVlmSettings, saveVlmSettings, testVlm } from "../lib/api";
 import { ErrorBlock, LoadingBlock } from "../components/states";
+import {
+  ACCENT_OPTIONS,
+  getAccent,
+  getMode,
+  setAccent,
+  setMode,
+  type AccentId,
+  type ThemeMode,
+} from "../lib/theme";
 
 /**
  * VLM settings page: the model used to read price screenshots. API keys are
@@ -18,6 +27,8 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setModeState] = useState<ThemeMode>(getMode());
+  const [accent, setAccentState] = useState<AccentId>(getAccent());
 
   useEffect(() => {
     if (query.data) {
@@ -67,6 +78,66 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
+        <div className="space-y-5">
+          <div>
+            <label className="mb-1.5 block text-xs text-zinc-500">
+              外观（当前主题偏深，可切换浅色）
+            </label>
+            <div className="flex gap-2">
+              {(["dark", "light"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setModeState(m);
+                    setMode(m);
+                  }}
+                  className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
+                    mode === m
+                      ? "border-sky-500/70 bg-sky-500/10 text-sky-400"
+                      : "border-zinc-700/70 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                  }`}
+                >
+                  {m === "dark" ? "深色（默认）" : "浅色"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs text-zinc-500">主题色</label>
+            <div className="flex items-center gap-2.5">
+              {ACCENT_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  title={option.label}
+                  aria-label={option.label}
+                  aria-pressed={accent === option.id}
+                  onClick={() => {
+                    setAccentState(option.id);
+                    setAccent(option.id);
+                  }}
+                  className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
+                    accent === option.id
+                      ? "ring-2 ring-sky-400 ring-offset-2 ring-offset-zinc-950"
+                      : "ring-1 ring-zinc-700 ring-offset-0"
+                  }`}
+                  style={{ backgroundColor: option.swatch }}
+                />
+              ))}
+              <span className="text-xs text-zinc-400">
+                {ACCENT_OPTIONS.find((option) => option.id === accent)?.label ??
+                  "天蓝"}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-zinc-600">
+            外观与主题色保存在本机浏览器（localStorage），选择后立即生效、所有页面同步，无需保存。
+          </p>
+        </div>
+      </div>
+
       <p className="text-xs text-zinc-500">
         配置用于识别价格截图的视觉语言模型（VLM），走 OpenAI 兼容接口。API Key 属于秘密：
         只写入本机 gitignored 配置文件，接口从不回显；识别结果始终只作预填，由你确认后保存。

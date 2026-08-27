@@ -1,5 +1,97 @@
 @import "tailwindcss";
 
+html {
+  color-scheme: dark;
+}
+
 body {
   @apply bg-zinc-950 text-zinc-100 antialiased;
+}
+
+/* --- Theme: appearance mode -------------------------------------------------
+   data-mode="light" flips the zinc scale and the semantic tints (success /
+   warning / error) so every page works on a near-white canvas. The default
+   (no attribute) keeps the built-in dark palette. Components stay untouched;
+   only these CSS variables change. */
+html[data-mode="light"] {
+  color-scheme: light;
+  --color-zinc-100: #18181b;
+  --color-zinc-200: #27272a;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-400: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-600: #a1a1aa;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-900: #f4f4f5;
+  --color-zinc-950: #fafafa;
+  --color-amber-200: #b45309;
+  --color-amber-500: #b45309;
+  --color-amber-800: #d97706;
+  --color-amber-900: #b45309;
+  --color-amber-950: #fef3c7;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
+  --color-emerald-900: #059669;
+  --color-emerald-950: #d1fae5;
+  --color-rose-400: #e11d48;
+  --color-rose-500: #e11d48;
+}
+
+/* --- Theme: accent color ----------------------------------------------------
+   The primary accent is the Tailwind sky scale; picking a palette swaps those
+   CSS variables at runtime, so bg-sky-600 / text-sky-400 etc. follow the
+   chosen color everywhere without touching components. */
+html[data-accent="cyan"] {
+  --color-sky-300: #67e8f9;
+  --color-sky-400: #22d3ee;
+  --color-sky-500: #06b6d4;
+  --color-sky-600: #0891b2;
+  --color-sky-700: #0e7490;
+}
+
+html[data-accent="emerald"] {
+  --color-sky-300: #6ee7b7;
+  --color-sky-400: #34d399;
+  --color-sky-500: #10b981;
+  --color-sky-600: #059669;
+  --color-sky-700: #047857;
+}
+
+html[data-accent="violet"] {
+  --color-sky-300: #c4b5fd;
+  --color-sky-400: #a78bfa;
+  --color-sky-500: #8b5cf6;
+  --color-sky-600: #7c3aed;
+  --color-sky-700: #6d28d9;
+}
+
+html[data-accent="amber"] {
+  --color-sky-300: #fcd34d;
+  --color-sky-400: #fbbf24;
+  --color-sky-500: #f59e0b;
+  --color-sky-600: #d97706;
+  --color-sky-700: #b45309;
+}
+
+html[data-accent="rose"] {
+  --color-sky-300: #fda4af;
+  --color-sky-400: #fb7185;
+  --color-sky-500: #f43f5e;
+  --color-sky-600: #e11d48;
+  --color-sky-700: #be123c;
+}
+
+/* Browsers paint autofilled inputs with their own pale background, which
+   overrides the page's dark input look (e.g. the VLM API-key field). Paint
+   the page color back underneath and keep the normal text color. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-zinc-950) inset;
+  -webkit-text-fill-color: var(--color-zinc-200);
+  caret-color: var(--color-zinc-200);
+  transition: background-color 9999s ease-in-out 0s;
 }
