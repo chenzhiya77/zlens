@@ -11,6 +11,7 @@ dist/
 # Project secrets & local config
 .env
 pricing.json
+zlens.config.json
 
 # Frontend
 node_modules/
