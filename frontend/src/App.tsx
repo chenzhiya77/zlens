@@ -8,6 +8,7 @@ import Overview from "./pages/Overview";
 import Performance from "./pages/Performance";
 import Pricing from "./pages/Pricing";
 import Projects from "./pages/Projects";
+import Settings from "./pages/Settings";
 import Trends from "./pages/Trends";
 
 export const VIEWS = [
@@ -18,6 +19,7 @@ export const VIEWS = [
   { path: "/performance", label: "性能" },
   { path: "/health", label: "健康度" },
   { path: "/pricing", label: "价格表" },
+  { path: "/settings", label: "设置" },
 ] as const;
 
 const PAGE_ELEMENTS: Record<(typeof VIEWS)[number]["path"], ReactElement> = {
@@ -28,6 +30,7 @@ const PAGE_ELEMENTS: Record<(typeof VIEWS)[number]["path"], ReactElement> = {
   "/performance": <Performance />,
   "/health": <Health />,
   "/pricing": <Pricing />,
+  "/settings": <Settings />,
 };
 
 function Layout() {

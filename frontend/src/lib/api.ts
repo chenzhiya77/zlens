@@ -157,6 +157,65 @@ export const savePricing = (table: PriceTable) =>
     return res.json() as Promise<PriceTable>;
   });
 
+export interface VlmSettings {
+  base_url: string;
+  model: string;
+  api_key_configured: boolean;
+}
+
+export const fetchVlmSettings = () => getJson<VlmSettings>("/api/settings/vlm");
+
+export const saveVlmSettings = (payload: {
+  base_url?: string;
+  model?: string;
+  api_key?: string;
+}) =>
+  fetch("/api/settings/vlm", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).then((res) => {
+    if (!res.ok) throw new ApiError(`http_${res.status}`, "设置保存失败", res.status);
+    return res.json() as Promise<{ ok: boolean }>;
+  });
+
+export const testVlm = () => getJson<{ ok: boolean; reply: string }>("/api/settings/vlm/test");
+
+export interface ExtractedPrice {
+  model_id: string;
+  input: number | null;
+  output: number | null;
+  cache_read: number | null;
+  cache_write: number | null;
+}
+
+export interface ExtractResult {
+  currency: string;
+  unit: string;
+  models: ExtractedPrice[];
+}
+
+export const extractPricing = (imageBase64: string) =>
+  fetch("/api/pricing/extract", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_base64: imageBase64 }),
+  }).then(async (res) => {
+    if (!res.ok) {
+      let code = `http_${res.status}`;
+      let message = res.statusText;
+      try {
+        const body = (await res.json()) as { error?: { code?: string; message?: string } };
+        if (body.error?.code) code = body.error.code;
+        if (body.error?.message) message = body.error.message;
+      } catch {
+        // keep status-based fallbacks
+      }
+      throw new ApiError(code, message, res.status);
+    }
+    return res.json() as Promise<ExtractResult>;
+  });
+
 export interface ErrorGroup {
   source: string;
   error_type: string;

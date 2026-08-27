@@ -14,8 +14,20 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from zlens import __version__
-from zlens.api.routers import health, meta, models, overview, performance, pricing, projects, trends
-from zlens.core.config import Settings, load_settings
+from zlens.api.routers import (
+    health,
+    meta,
+    models,
+    overview,
+    performance,
+    pricing,
+    projects,
+    trends,
+)
+from zlens.api.routers import (
+    settings as settings_router,
+)
+from zlens.core.config import Settings, load_settings, with_config_overlay
 from zlens.sources.base import SourceError, SourceUnavailable
 from zlens.sources.minimax import MinimaxSource
 from zlens.sources.multi import MultiSource
@@ -27,7 +39,7 @@ _STATIC_DIST = Path(__file__).resolve().parent.parent / "web" / "static_dist"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    settings = settings or load_settings()
+    settings = with_config_overlay(settings or load_settings())
     app = FastAPI(title="zlens", version=__version__)
     app.state.settings = settings
     app.state.source = MultiSource(
@@ -54,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(performance.router)
     app.include_router(health.router)
     app.include_router(pricing.router)
+    app.include_router(settings_router.router)
 
     if _STATIC_DIST.is_dir():
         # Single-process delivery: API routes above win by registration order,

@@ -187,6 +187,7 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
         opencode=None,
         opencode_sessions=(),
         pricing_path=None,
+        config_json_path=None,
     ):
         return Settings(
             db_path=make_db(rows, sessions),
@@ -199,6 +200,7 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
                 else tmp_path / "opencode-missing.db"
             ),
             pricing_path=(pricing_path or tmp_path / "pricing.json"),
+            config_json_path=(config_json_path or tmp_path / "zlens.config.json"),
         )
 
     return _make
