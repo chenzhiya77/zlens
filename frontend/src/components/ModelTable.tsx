@@ -2,9 +2,12 @@ import type { ModelUsageSummary } from "../lib/api";
 import { formatCost, formatTokens } from "../lib/format";
 
 // Shared per-model breakdown table (overview + models views).
+// Units: token columns count tokens; the cost column is USD (per price table).
 export default function ModelTable({ models }: { models: ModelUsageSummary[] }) {
   return (
-    <table className="w-full text-sm">
+    <>
+      <p className="mb-2 text-xs text-zinc-600">单位：token 列为 tokens；成本列为 USD（按价格表估算）</p>
+      <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
           <th className="py-2 pr-4 font-medium">来源</th>
@@ -52,5 +55,6 @@ export default function ModelTable({ models }: { models: ModelUsageSummary[] }) 
         ))}
       </tbody>
     </table>
+    </>
   );
 }

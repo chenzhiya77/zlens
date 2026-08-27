@@ -6,6 +6,7 @@ import Health from "./pages/Health";
 import Models from "./pages/Models";
 import Overview from "./pages/Overview";
 import Performance from "./pages/Performance";
+import Pricing from "./pages/Pricing";
 import Projects from "./pages/Projects";
 import Trends from "./pages/Trends";
 
@@ -16,6 +17,7 @@ export const VIEWS = [
   { path: "/projects", label: "按项目" },
   { path: "/performance", label: "性能" },
   { path: "/health", label: "健康度" },
+  { path: "/pricing", label: "价格表" },
 ] as const;
 
 const PAGE_ELEMENTS: Record<(typeof VIEWS)[number]["path"], ReactElement> = {
@@ -25,6 +27,7 @@ const PAGE_ELEMENTS: Record<(typeof VIEWS)[number]["path"], ReactElement> = {
   "/projects": <Projects />,
   "/performance": <Performance />,
   "/health": <Health />,
+  "/pricing": <Pricing />,
 };
 
 function Layout() {

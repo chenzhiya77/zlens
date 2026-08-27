@@ -180,7 +180,14 @@ def make_opencode_db(tmp_path):
 def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
     """Settings where only the explicitly built sources exist."""
 
-    def _make(rows=(), sessions=(), minimax=(), opencode=None, opencode_sessions=()):
+    def _make(
+        rows=(),
+        sessions=(),
+        minimax=(),
+        opencode=None,
+        opencode_sessions=(),
+        pricing_path=None,
+    ):
         return Settings(
             db_path=make_db(rows, sessions),
             minimax_sessions_dir=(
@@ -191,6 +198,7 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
                 if opencode is not None
                 else tmp_path / "opencode-missing.db"
             ),
+            pricing_path=(pricing_path or tmp_path / "pricing.json"),
         )
 
     return _make
@@ -200,7 +208,7 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
 def client_factory(make_settings):
     """Factory: app + TestClient bound to synthetic sources."""
 
-    def _make(rows=(), sessions=(), minimax=()):
-        return TestClient(create_app(make_settings(rows, sessions, minimax)))
+    def _make(rows=(), sessions=(), minimax=(), **kwargs):
+        return TestClient(create_app(make_settings(rows, sessions, minimax, **kwargs)))
 
     return _make

@@ -133,6 +133,30 @@ export interface PerformanceReport {
 
 export const fetchPerformance = () => getJson<PerformanceReport>("/api/performance");
 
+export interface ModelPrice {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+}
+
+export interface PriceTable {
+  version: number;
+  models: Record<string, ModelPrice>;
+}
+
+export const fetchPricing = () => getJson<PriceTable>("/api/pricing");
+
+export const savePricing = (table: PriceTable) =>
+  fetch("/api/pricing", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(table),
+  }).then((res) => {
+    if (!res.ok) throw new ApiError(`http_${res.status}`, "价格表保存失败", res.status);
+    return res.json() as Promise<PriceTable>;
+  });
+
 export interface ErrorGroup {
   source: string;
   error_type: string;

@@ -46,6 +46,7 @@ export default function Projects() {
 
       <section>
         <h2 className="mb-3 text-sm font-medium text-zinc-400">项目明细</h2>
+        <p className="mb-2 text-xs text-zinc-600">单位：token 列为 tokens；成本列为 USD（按价格表估算）</p>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">

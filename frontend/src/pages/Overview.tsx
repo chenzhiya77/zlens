@@ -49,18 +49,18 @@ export default function Overview() {
 
       <div className="flex divide-x divide-zinc-800/80 rounded-xl border border-zinc-800/80 bg-zinc-900/40">
         <Kpi value={o.request_count.toLocaleString("zh-CN")} label="模型请求次数" />
-        <Kpi value={formatTokens(o.total_tokens)} label="累计 Token" />
+        <Kpi value={formatTokens(o.total_tokens)} label="累计 Token (tokens)" />
         <Kpi
           value={formatCost(o.estimated_cost_usd)}
-          label="估算成本"
+          label="估算成本 (USD)"
           hint={o.estimated_cost_usd === null ? "未配置价格" : "估算值"}
         />
         <Kpi
           value={formatTokens(o.cache_read_tokens)}
-          label="缓存读 Token"
+          label="缓存读 Token (tokens)"
           hint="省钱大户"
         />
-        <Kpi value={formatTokens(o.output_tokens)} label="输出 Token" />
+        <Kpi value={formatTokens(o.output_tokens)} label="输出 Token (tokens)" />
       </div>
 
       {m.unpriced_models.length > 0 && (
