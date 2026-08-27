@@ -46,12 +46,15 @@ export default function Health() {
         ) : (
           <div className="space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
             {data.errors.map((e) => (
-              <div key={`${e.error_type}/${e.error_code ?? ""}`}>
-                <div className="mb-1 flex items-baseline justify-between text-xs">
-                  <span className="font-mono text-zinc-300">
+              <div key={`${e.source}/${e.error_type}/${e.error_code ?? ""}`}>
+                <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
+                  <span className="flex items-baseline gap-2 font-mono text-zinc-300">
+                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-500">
+                      {e.source}
+                    </span>
                     {e.error_type}
                     {e.error_code !== null && (
-                      <span className="ml-2 text-zinc-500">{e.error_code}</span>
+                      <span className="text-zinc-500">{e.error_code}</span>
                     )}
                   </span>
                   <span className="tabular-nums text-zinc-400">

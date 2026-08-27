@@ -49,6 +49,7 @@ export default function Projects() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+              <th className="py-2 pr-4 font-medium">来源</th>
               <th className="py-2 pr-4 font-medium">项目目录</th>
               <th className="py-2 pr-4 font-medium">代表会话</th>
               <th className="py-2 pr-4 text-right font-medium">请求</th>
@@ -61,7 +62,12 @@ export default function Projects() {
           </thead>
           <tbody>
             {projects.map((p) => (
-              <tr key={p.directory} className="border-b border-zinc-900">
+              <tr key={`${p.source}/${p.directory}`} className="border-b border-zinc-900">
+                <td className="py-2 pr-4">
+                  <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+                    {p.source}
+                  </span>
+                </td>
                 <td className="max-w-72 truncate py-2 pr-4 font-mono text-xs text-zinc-300">
                   {p.directory}
                 </td>

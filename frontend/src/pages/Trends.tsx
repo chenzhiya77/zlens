@@ -50,10 +50,12 @@ export default function Trends() {
     const shown = cutoffDays === null ? days : days.slice(-cutoffDays);
     const shownKeys = new Set(shown.map((d) => d.day));
 
-    const models = [...new Set(data.by_model.map((r) => r.model_id))];
+    const models = [...new Set(data.by_model.map((r) => `${r.source}/${r.model_id}`))];
     const byModelDay = new Map<string, number>();
     for (const row of data.by_model) {
-      if (shownKeys.has(row.day)) byModelDay.set(`${row.model_id}|${row.day}`, row[metric]);
+      if (shownKeys.has(row.day)) {
+        byModelDay.set(`${row.source}/${row.model_id}|${row.day}`, row[metric]);
+      }
     }
     return { days: shown, models, byModelDay };
   }, [data, range, metric]);

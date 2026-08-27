@@ -23,7 +23,7 @@ zlens/
 │   └── plans/tickets/      # 实施票:每票一文件,含目标/边界/验收/阻塞边
 ├── src/zlens/              # 后端包(Python >=3.12,src layout)
 │   ├── core/               # config.py(配置)、cost.py(成本估算)、stats.py(分位数)
-│   ├── sources/            # base.py 适配器协议 + zcode.py(mode=ro 只读)
+│   ├── sources/            # base.py 协议 + zcode/minimax/opencode/multi 适配器,只读
 │   ├── api/                # FastAPI:create_app/routers 只读端点 + SPA 静态托管
 │   └── web/static_dist/    # 前端构建产物(gitignored,由 make build-web 生成)
 ├── tests/                  # pytest,扁平命名 test_<feature>.py;live marker 默认排除
@@ -42,7 +42,7 @@ zlens/
 
 ## 架构红线
 
-- **数据源只读**:连接 `~/.zcode/cli/db/db.sqlite` 必须使用 SQLite URI `file:...?mode=ro`;
+- **新增数据源 = 新增一个 `sources/<name>.py` 适配器**:实现 base.py 协议并接入\n  MultiSource 与 Settings 路径即可,下游九端点和全部视图零改动。数据源列表见 v2 spec。\n- **数据源只读**:连接任何 agent 本地库必须使用 SQLite URI `file:...?mode=ro`;
   禁止任何写入、建表、迁移类操作。查询失败必须降级为明确错误响应,不得拖垮整个服务。
 - **价格外置**:金额折算只读 `pricing.json`;模型不在表内时仅展示 token 数,
   禁止硬编码任何单价。

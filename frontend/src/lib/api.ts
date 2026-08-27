@@ -39,6 +39,7 @@ export interface MetaInfo {
 }
 
 export interface ModelUsageSummary {
+  source: string;
   provider_id: string;
   model_id: string;
   request_count: number;
@@ -67,6 +68,7 @@ export const fetchMeta = () => getJson<MetaInfo>("/api/meta");
 export const fetchOverview = () => getJson<Overview>("/api/overview");
 
 export interface DailyUsage {
+  source: string;
   day: string;
   request_count: number;
   input_tokens: number;
@@ -79,6 +81,7 @@ export interface DailyUsage {
 }
 
 export interface DailyModelUsage {
+  source: string;
   day: string;
   provider_id: string;
   model_id: string;
@@ -100,6 +103,7 @@ export interface DailyTrends {
 export const fetchTrends = () => getJson<DailyTrends>("/api/trends/daily");
 
 export interface ProjectUsage {
+  source: string;
   directory: string;
   title: string;
   request_count: number;
@@ -130,6 +134,7 @@ export interface PerformanceReport {
 export const fetchPerformance = () => getJson<PerformanceReport>("/api/performance");
 
 export interface ErrorGroup {
+  source: string;
   error_type: string;
   error_code: string | null;
   request_count: number;

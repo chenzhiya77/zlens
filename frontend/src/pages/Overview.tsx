@@ -40,6 +40,8 @@ export default function Overview() {
   return (
     <div className="space-y-8">
       <p className="text-xs text-zinc-500">
+        数据源 {m.source_id}
+        <span className="mx-2 text-zinc-700">|</span>
         数据范围 {formatDateTime(m.first_request_at)} → {formatDateTime(m.last_request_at)}
         <span className="mx-2 text-zinc-700">|</span>
         统计生成于 {formatDateTime(m.generated_at)}

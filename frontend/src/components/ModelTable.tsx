@@ -7,6 +7,7 @@ export default function ModelTable({ models }: { models: ModelUsageSummary[] }) 
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+          <th className="py-2 pr-4 font-medium">来源</th>
           <th className="py-2 pr-4 font-medium">模型</th>
           <th className="py-2 pr-4 text-right font-medium">请求</th>
           <th className="py-2 pr-4 text-right font-medium">输入</th>
@@ -20,6 +21,11 @@ export default function ModelTable({ models }: { models: ModelUsageSummary[] }) 
       <tbody>
         {models.map((row) => (
           <tr key={`${row.provider_id}/${row.model_id}`} className="border-b border-zinc-900">
+            <td className="py-2 pr-4">
+              <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+                {row.source}
+              </span>
+            </td>
             <td className="py-2 pr-4 font-mono text-xs text-zinc-300">{row.model_id}</td>
             <td className="py-2 pr-4 text-right tabular-nums">
               {row.request_count.toLocaleString("zh-CN")}

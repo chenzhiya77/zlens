@@ -1,10 +1,11 @@
 # zlens
 
-Local-first 的 AI Coding Agent token 用量与成本分析工具。v1 数据源:ZCode。
+Local-first 的 AI Coding Agent token 用量与成本分析工具。v2 支持多数据源:
+ZCode(`~/.zcode/cli/db/db.sqlite`)、MiniMax Code(`~/.minimax/v2/sessions`)、
+opencode(`~/.local/share/opencode/opencode.db`),列表后续可扩展。
 
 打开即查:五类 token 总览、日趋势、按模型 / 按项目拆分、性能分位数(TTFT / 耗时)、
-健康度(重试与错误)。数据来自本机 `~/.zcode/cli/db/db.sqlite`,全程以
-`mode=ro` 只读访问,不影响正在进行的对话。
+健康度(重试与错误)。多来源合并展示,每行可追溯到来源;全程只读,不影响正在进行的对话。
 
 ## 快速开始
 
