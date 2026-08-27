@@ -210,11 +210,14 @@ export interface ExtractResult {
   models: ExtractedPrice[];
 }
 
-export const extractPricing = (imageBase64: string) =>
+export const extractPricing = (imageBase64: string, focusModel?: string) =>
   fetch("/api/pricing/extract", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image_base64: imageBase64 }),
+    body: JSON.stringify({
+      image_base64: imageBase64,
+      ...(focusModel ? { focus_model: focusModel } : {}),
+    }),
   }).then(async (res) => {
     if (!res.ok) {
       let code = `http_${res.status}`;
