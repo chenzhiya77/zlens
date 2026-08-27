@@ -47,7 +47,20 @@ export default function Settings() {
       setResult(data.ok ? `连接成功：${data.reply}` : "连接测试未返回成功");
       setError(null);
     },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : "连接测试失败");
+      setResult(null);
+    },
   });
+
+  const handleTest = () => {
+    if (!query.data?.api_key_configured) {
+      setError("尚未配置 VLM API Key：请先填写并保存 VLM 配置，再测试连接。");
+      setResult(null);
+      return;
+    }
+    testMutation.mutate();
+  };
 
   if (query.isLoading) return <LoadingBlock />;
   if (query.isError) return <ErrorBlock error={query.error} />;
@@ -104,8 +117,8 @@ export default function Settings() {
           </button>
           <button
             type="button"
-            onClick={() => testMutation.mutate()}
-            disabled={testMutation.isPending || !query.data?.api_key_configured}
+            onClick={handleTest}
+            disabled={testMutation.isPending}
             className="rounded-md border border-zinc-800 px-4 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
           >
             测试连接

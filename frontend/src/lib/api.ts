@@ -179,7 +179,22 @@ export const saveVlmSettings = (payload: {
     return res.json() as Promise<{ ok: boolean }>;
   });
 
-export const testVlm = () => getJson<{ ok: boolean; reply: string }>("/api/settings/vlm/test");
+export const testVlm = () =>
+  fetch("/api/settings/vlm/test", { method: "POST" }).then(async (res) => {
+    if (!res.ok) {
+      let code = `http_${res.status}`;
+      let message = res.statusText;
+      try {
+        const body = (await res.json()) as { error?: { code?: string; message?: string } };
+        if (body.error?.code) code = body.error.code;
+        if (body.error?.message) message = body.error.message;
+      } catch {
+        // keep status-based fallbacks
+      }
+      throw new ApiError(code, message, res.status);
+    }
+    return res.json() as Promise<{ ok: boolean; reply: string }>;
+  });
 
 export interface ExtractedPrice {
   model_id: string;
