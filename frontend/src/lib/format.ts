@@ -1,5 +1,5 @@
 // Display formatters. Token counts use Chinese units (万/亿) per the visual
-// baseline borrowed from the ZCode usage panel.
+// baseline borrowed from the ZCode usage panel. Money is CNY (the app's base).
 
 export function formatTokens(n: number): string {
   if (Math.abs(n) >= 100_000_000) return `${(n / 100_000_000).toFixed(2)} 亿`;
@@ -7,9 +7,9 @@ export function formatTokens(n: number): string {
   return n.toLocaleString("zh-CN");
 }
 
-export function formatCost(usd: number | null): string {
-  if (usd === null) return "未计价";
-  return `$${usd.toFixed(2)}`;
+export function formatCost(amount: number | null): string {
+  if (amount === null) return "未计价";
+  return `¥${amount.toFixed(2)}`;
 }
 
 export function formatDateTime(iso: string | null): string {

@@ -36,6 +36,10 @@ opencode 在产生真实用量),分开看每个工具的 token 花销既麻烦�
 - **归一化映射**:MiniMax `usage.input/output/cacheRead/cacheWrite` →
   input/output/cache_read/cache_creation,reasoning 恒为 0;opencode `tokens.cache.write/read` →
   cache_creation/cache_read,耗时 = completed - created。
+  四档必须互斥且相加 = `total_tokens`(成本逐档乘价,嵌套即重复计价):实测 ZCode 把缓存前缀
+  算进 `input_tokens`(`total = input + output`),故其适配器交出 `input - cache_read -
+  cache_creation`(逐行 clamp);opencode 把 reasoning 当独立加数计入 total,故并进输出档;
+  MiniMax 本就互斥。
 - **配置**:两个新路径进 Settings(默认指向各自标准位置,ZLENS_ 前缀环境变量可覆盖);
   路径不存在 = 该来源不可用,不影响其他来源。
 - **schema 防御**:MiniMax 会话目录缺失 → 该源不可用;ledger 单行损坏 → 跳过该行(日志语义),

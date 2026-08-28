@@ -40,11 +40,11 @@ def test_projects_fold_join_and_cost_rule(client_factory, tmp_path):
     proj = projects["E:/work/proj"]
     assert (proj.request_count, proj.total_tokens) == (2, 600)
     assert proj.title == "T2"  # representative title = MAX(title) of the project's sessions
-    assert proj.estimated_cost_usd is None  # unpriced model b contributes -> honest null
+    assert proj.estimated_cost is None  # unpriced model b contributes -> honest null
 
     orphan = projects["(unknown)"]
     assert (orphan.request_count, orphan.total_tokens) == (2, 60)
-    assert orphan.estimated_cost_usd == 0.75  # (1e6 + 5e5 + 2.5e5) * 1.0 / 1e6
+    assert orphan.estimated_cost == 0.75  # (1e6 + 5e5 + 2.5e5) * 1.0 / 1e6
 
 
 def test_projects_via_api_ordering(client_factory):
@@ -68,7 +68,7 @@ def _write_pricing(tmp_path):
 
     path = tmp_path / "pricing.json"
     path.write_text(
-        json.dumps({"version": 1, "models": {"a": {"input": 1.0, "output": 0.0}}}),
+        json.dumps({"version": 1, "models": {"zcode|unknown|a": {"input": 1.0, "output": 0.0}}}),
         encoding="utf-8",
     )
     return path

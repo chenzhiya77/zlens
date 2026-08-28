@@ -41,11 +41,20 @@ def test_opencode_adapter_maps_tokens_model_project_and_duration(make_opencode_d
     row = overview.by_model[0]
     assert overview.request_count == 1
     assert overview.input_tokens == 1_000
-    assert overview.output_tokens == 100
+    # opencode adds reasoning to its own total; the contract bills it at the output
+    # price, so the output tier is 100 + 50 while reasoning stays a breakdown.
+    assert overview.output_tokens == 150
     assert overview.reasoning_tokens == 50
     assert overview.cache_creation_tokens == 50
     assert overview.cache_read_tokens == 300
     assert overview.total_tokens == 1_500
+    assert (
+        overview.input_tokens
+        + overview.output_tokens
+        + overview.cache_creation_tokens
+        + overview.cache_read_tokens
+        == overview.total_tokens
+    )
     assert (row.source, row.provider_id, row.model_id) == (
         "opencode",
         "opencode",

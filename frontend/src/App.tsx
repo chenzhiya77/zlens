@@ -1,41 +1,30 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { createBrowserRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 
-import Health from "./pages/Health";
-import Models from "./pages/Models";
 import Overview from "./pages/Overview";
-import Performance from "./pages/Performance";
 import Pricing from "./pages/Pricing";
-import Projects from "./pages/Projects";
+import Runtime from "./pages/Runtime";
 import Settings from "./pages/Settings";
-import Trends from "./pages/Trends";
+import Usage from "./pages/Usage";
 
-export const VIEWS = [
-  { path: "/", label: "总览" },
-  { path: "/trends", label: "日趋势" },
-  { path: "/models", label: "按模型" },
-  { path: "/projects", label: "按项目" },
-  { path: "/performance", label: "性能" },
-  { path: "/health", label: "健康度" },
-  { path: "/pricing", label: "价格表" },
-  { path: "/settings", label: "设置" },
-] as const;
+// Sidebar grouped by purpose: analysis views vs configuration. "用量分析"
+// hosts its three cuts as in-page tabs (see pages/Usage.tsx).
+const NAV: { path: string; label: string; group: string | null }[] = [
+  { path: "/", label: "总览", group: null },
+  { path: "/usage", label: "用量分析", group: "分析" },
+  { path: "/runtime", label: "运行质量", group: "分析" },
+  { path: "/pricing", label: "价格表", group: "配置" },
+  { path: "/settings", label: "设置", group: "配置" },
+];
 
-const PAGE_ELEMENTS: Record<(typeof VIEWS)[number]["path"], ReactElement> = {
-  "/": <Overview />,
-  "/trends": <Trends />,
-  "/models": <Models />,
-  "/projects": <Projects />,
-  "/performance": <Performance />,
-  "/health": <Health />,
-  "/pricing": <Pricing />,
-  "/settings": <Settings />,
-};
+function isActive(pathname: string, path: string): boolean {
+  return path === "/" ? pathname === "/" : pathname.startsWith(path);
+}
 
 function Layout() {
   const { pathname } = useLocation();
-  const current = VIEWS.find((v) => v.path === pathname)?.label ?? "zlens";
+  const current = NAV.find((v) => isActive(pathname, v.path))?.label ?? "zlens";
 
   return (
     <div className="flex min-h-screen">
@@ -45,8 +34,13 @@ function Layout() {
           <p className="mt-1 text-xs text-zinc-500">coding agent 用量透镜</p>
         </div>
         <ul className="space-y-1">
-          {VIEWS.map((view) => (
+          {NAV.map((view, index) => (
             <li key={view.path}>
+              {view.group && NAV[index - 1]?.group !== view.group && (
+                <p className="mb-1 mt-4 px-3 text-[11px] font-medium text-zinc-600">
+                  {view.group}
+                </p>
+              )}
               <NavLink
                 to={view.path}
                 end={view.path === "/"}
@@ -69,7 +63,7 @@ function Layout() {
           不影响进行中的对话
         </p>
       </nav>
-      <main className="flex-1 px-10 py-8">
+      <main className="min-w-0 flex-1 px-10 py-8">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">{current}</h1>
         <Outlet />
       </main>
@@ -77,10 +71,25 @@ function Layout() {
   );
 }
 
+const PAGES: Record<string, ReactElement> = {
+  overview: <Overview />,
+  usage: <Usage />,
+  runtime: <Runtime />,
+  pricing: <Pricing />,
+  settings: <Settings />,
+};
+
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
-    children: VIEWS.map(({ path }) => ({ path, element: PAGE_ELEMENTS[path] })),
+    children: [
+      { path: "/", element: PAGES.overview },
+      { path: "/usage", element: <Navigate to="/usage/trends" replace /> },
+      { path: "/usage/:tab", element: PAGES.usage },
+      { path: "/runtime", element: PAGES.runtime },
+      { path: "/pricing", element: PAGES.pricing },
+      { path: "/settings", element: PAGES.settings },
+    ],
   },
 ]);

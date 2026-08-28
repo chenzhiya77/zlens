@@ -49,7 +49,7 @@ export interface ModelUsageSummary {
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
-  estimated_cost_usd: number | null;
+  estimated_cost: number | null;
 }
 
 export interface Overview {
@@ -60,7 +60,9 @@ export interface Overview {
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
-  estimated_cost_usd: number | null;
+  estimated_cost: number | null;
+  /** One-off buyout/plan spend from the price table; never summed with estimated_cost. */
+  buyout_total: number;
   by_model: ModelUsageSummary[];
 }
 
@@ -77,7 +79,7 @@ export interface DailyUsage {
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
-  estimated_cost_usd: number | null;
+  estimated_cost: number | null;
 }
 
 export interface DailyModelUsage {
@@ -92,7 +94,7 @@ export interface DailyModelUsage {
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
-  estimated_cost_usd: number | null;
+  estimated_cost: number | null;
 }
 
 export interface DailyTrends {
@@ -113,7 +115,7 @@ export interface ProjectUsage {
   cache_creation_tokens: number;
   cache_read_tokens: number;
   total_tokens: number;
-  estimated_cost_usd: number | null;
+  estimated_cost: number | null;
 }
 
 export const fetchProjects = () =>
@@ -133,16 +135,24 @@ export interface PerformanceReport {
 
 export const fetchPerformance = () => getJson<PerformanceReport>("/api/performance");
 
+/** Currency a price screenshot was written in, as reported by the extractor. */
+export type Currency = "cny" | "usd";
+
 export interface ModelPrice {
   input: number;
   output: number;
   cache_read: number;
   cache_write: number;
+  /** One-off CNY paid for a plan/buyout channel; null means "not a buyout row". */
+  buyout_amount: number | null;
 }
 
 export interface PriceTable {
   version: number;
+  /** All prices are CNY (the app's money base). */
   models: Record<string, ModelPrice>;
+  /** Entry-time rate the pricing form folds $ prices with; never used in costing. */
+  fx_usd_cny: number | null;
 }
 
 export const fetchPricing = () => getJson<PriceTable>("/api/pricing");
@@ -152,8 +162,18 @@ export const savePricing = (table: PriceTable) =>
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(table),
-  }).then((res) => {
-    if (!res.ok) throw new ApiError(`http_${res.status}`, "价格表保存失败", res.status);
+  }).then(async (res) => {
+    if (!res.ok) {
+      let message = "价格表保存失败";
+      try {
+        // Key/price validation failures name the offending row in `detail`.
+        const body = (await res.json()) as { detail?: unknown };
+        if (typeof body.detail === "string") message = body.detail;
+      } catch {
+        // non-JSON error body: keep the generic message
+      }
+      throw new ApiError(`http_${res.status}`, message, res.status);
+    }
     return res.json() as Promise<PriceTable>;
   });
 
@@ -205,7 +225,7 @@ export interface ExtractedPrice {
 }
 
 export interface ExtractResult {
-  currency: string;
+  currency: Currency | null;
   unit: string;
   models: ExtractedPrice[];
 }

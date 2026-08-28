@@ -78,7 +78,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 p-5">
         <div className="space-y-5">
           <div>
             <label className="mb-1.5 block text-xs text-zinc-500">
@@ -120,7 +120,7 @@ export default function Settings() {
                   }}
                   className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${
                     accent === option.id
-                      ? "ring-2 ring-sky-400 ring-offset-2 ring-offset-zinc-950"
+                      ? "ring-2 ring-sky-400 ring-offset-2 ring-offset-zinc-900"
                       : "ring-1 ring-zinc-700 ring-offset-0"
                   }`}
                   style={{ backgroundColor: option.swatch }}
@@ -143,7 +143,7 @@ export default function Settings() {
         只写入本机 gitignored 配置文件，接口从不回显；识别结果始终只作预填，由你确认后保存。
       </p>
 
-      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5">
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 p-5">
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-xs text-zinc-500">Base URL</label>

@@ -65,6 +65,12 @@ class MultiSource:
             ids.update(adapter.model_ids())
         return sorted(ids)
 
+    def model_keys(self) -> list[str]:
+        keys: set[str] = set()
+        for adapter in self._active_or_raise():
+            keys.update(adapter.model_keys())
+        return sorted(keys)
+
     def meta(self) -> MetaInfo:
         metas = [a.meta() for a in self._active_or_raise()]
         firsts = [m.first_request_at for m in metas if m.first_request_at is not None]

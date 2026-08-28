@@ -26,5 +26,5 @@ export default function EChart({ option, height = 320 }: { option: EChartsOption
     chartRef.current?.setOption(option, true);
   }, [option]);
 
-  return <div ref={ref} style={{ width: "100%", height }} />;
+  return <div ref={ref} style={{ width: "100%", height, overflow: "hidden" }} />;
 }

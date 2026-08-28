@@ -2,6 +2,8 @@
 // these live in the browser (localStorage) instead of the backend config file;
 // initTheme() runs at startup and every page picks the values up immediately.
 
+import { useSyncExternalStore } from "react";
+
 export const ACCENT_OPTIONS = [
   { id: "sky", label: "天蓝", swatch: "#38bdf8" },
   { id: "cyan", label: "青色", swatch: "#22d3ee" },
@@ -40,9 +42,33 @@ export function initTheme(): void {
 export function setAccent(accent: AccentId): void {
   localStorage.setItem(ACCENT_KEY, accent);
   applyTheme(accent, getMode());
+  emit();
 }
 
 export function setMode(mode: ThemeMode): void {
   localStorage.setItem(MODE_KEY, mode);
   applyTheme(getAccent(), mode);
+  emit();
+}
+
+// ECharts paints on a canvas and can't read the CSS variables that flip the
+// Tailwind palette, so chart options need the active mode as plain values.
+const listeners = new Set<() => void>();
+
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** React hook: re-renders the caller whenever mode / accent changes. */
+export function useTheme(): { mode: ThemeMode; accent: AccentId } {
+  const mode = useSyncExternalStore(subscribe, getMode);
+  const accent = useSyncExternalStore(subscribe, getAccent);
+  return { mode, accent };
 }

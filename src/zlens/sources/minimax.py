@@ -20,6 +20,7 @@ from zlens.sources.models import (
     ModelUsageSummary,
     Overview,
     ProjectModelUsage,
+    model_key,
 )
 from zlens.sources.timeutil import ms_to_datetime, ms_to_local_day
 
@@ -125,6 +126,9 @@ class MinimaxSource:
 
     def model_ids(self) -> list[str]:
         return sorted({r.model_id for r in self._records()})
+
+    def model_keys(self) -> list[str]:
+        return sorted({model_key(self.id, self.id, r.model_id) for r in self._records()})
 
     def meta(self) -> MetaInfo:
         records = self._records()

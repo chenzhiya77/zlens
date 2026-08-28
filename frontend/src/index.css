@@ -2,10 +2,23 @@
 
 html {
   color-scheme: dark;
+  /* Page background lives on html so the whole canvas (overscroll / overflow
+     regions included) follows the theme; index.html's inline style only guards
+     the pre-CSS first paint. */
+  background-color: var(--color-zinc-950);
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply bg-zinc-950 text-zinc-200 antialiased;
+}
+
+/* Dark is the default theme. Lift it off near-pure-black so page < card <
+   border read as layered elevation (mainstream dark UIs avoid a #000 base).
+   The light-mode block below overrides these same variables again. */
+:root {
+  --color-zinc-950: #0f1215;
+  --color-zinc-900: #16191d;
+  --color-zinc-800: #262b31;
 }
 
 /* --- Theme: appearance mode -------------------------------------------------

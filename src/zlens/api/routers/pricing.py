@@ -15,6 +15,12 @@ router = APIRouter(prefix="/api", tags=["pricing"])
 _PRICE_FIELDS = ("input", "output", "cache_read", "cache_write")
 
 
+def _is_channel_key(key: str) -> bool:
+    """Price rows address one channel: 'source|provider_id|model_id' (see model_key)."""
+    parts = key.split("|")
+    return len(parts) == 3 and all(part.strip() for part in parts)
+
+
 @router.get("/pricing", response_model=PriceTable)
 def get_pricing(settings: Settings = Depends(get_settings)) -> PriceTable:
     return PriceTable.load(settings.pricing_path)
@@ -25,15 +31,23 @@ def put_pricing(
     table: PriceTable,
     settings: Settings = Depends(get_settings),
 ) -> PriceTable:
-    for model_id, price in table.models.items():
-        if not model_id.strip():
-            raise HTTPException(422, detail="model_id must not be empty")
+    for key, price in table.models.items():
+        if not _is_channel_key(key):
+            raise HTTPException(
+                422,
+                detail=f"价格键「{key}」不是渠道三元组 source|provider_id|model_id，无法对应用量",
+            )
         for field in _PRICE_FIELDS:
             if getattr(price, field) < 0:
                 raise HTTPException(
                     422,
-                    detail=f"price for '{model_id}' must not be negative ({field})",
+                    detail=f"渠道「{key}」的价格不能为负数（{field}）",
                 )
+        # Absent means "not a buyout row"; a value must still be a real amount.
+        if price.buyout_amount is not None and price.buyout_amount < 0:
+            raise HTTPException(422, detail=f"渠道「{key}」的买断价不能为负数")
+    if table.fx_usd_cny is not None and table.fx_usd_cny <= 0:
+        raise HTTPException(422, detail="fx_usd_cny 必须是正数（1 美元 = ? 人民币）")
     settings.pricing_path.write_text(
         json.dumps(table.model_dump(), ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -53,9 +67,11 @@ _EXTRACT_PROMPT = """\
 - 只提取明确的 token 计费单价（input / output / cache read / cache write）；
   套餐、订阅、月费类忽略。
 - 输出严格 JSON，不要任何多余文字或 markdown 代码块：
-  {"currency":"USD","unit":"per_1M_tokens","models":[
+  {"currency":"CNY"|"USD"|null,"unit":"per_1M_tokens","models":[
     {"model_id":"模型名","input":数字或null,"output":数字或null,
      "cache_read":数字或null,"cache_write":数字或null}]}
+- currency 只按截图上真实出现的货币标记判定:¥ / ￥ / CNY / RMB / 人民币 → "CNY";
+  $ / USD / 美元 → "USD";截图没有写明币种就输出 null——不要按模型或厂商国籍猜。
 - 若截图标注"每 1k tokens"，换算为每 1M tokens（乘以 1000）；无法换算的字段用 null。
 - 截图未写明的字段用 null，不要编造。若图中没有价格表，输出 {"models":[]}。
 """
@@ -78,6 +94,20 @@ def _extract_number(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+_CNY_MARKS = ("cny", "rmb", "¥", "￥", "人民币")
+_USD_MARKS = ("usd", "$", "美元")
+
+
+def _normalize_currency(value: object) -> str | None:
+    """Screenshot currency as 'cny'/'usd', or None when the image never said."""
+    text = str(value or "").strip().lower()
+    if any(mark in text for mark in _CNY_MARKS):
+        return "cny"
+    if any(mark in text for mark in _USD_MARKS):
+        return "usd"
+    return None
 
 
 def _parse_extract(content: str) -> dict | None:
@@ -108,7 +138,7 @@ def _parse_extract(content: str) -> dict | None:
             }
         )
     return {
-        "currency": str(data.get("currency") or "USD"),
+        "currency": _normalize_currency(data.get("currency")),
         "unit": str(data.get("unit") or "per_1M_tokens"),
         "models": models,
     }

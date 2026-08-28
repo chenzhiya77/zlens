@@ -17,5 +17,5 @@ def get_meta(
 ) -> MetaInfo:
     selected = store.select(source)
     table = PriceTable.load(settings.pricing_path)
-    unpriced = sorted(set(selected.model_ids()) - set(table.models))
+    unpriced = sorted(set(selected.model_keys()) - set(table.models))
     return selected.meta().model_copy(update={"unpriced_models": unpriced})

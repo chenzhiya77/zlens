@@ -21,6 +21,7 @@ from zlens.sources.models import (
     ModelUsageSummary,
     Overview,
     ProjectModelUsage,
+    model_key,
 )
 from zlens.sources.timeutil import ms_to_datetime, ms_to_local_day
 
@@ -105,6 +106,7 @@ class OpencodeSource:
             if data.get("role") != "assistant" or not tokens or time.get("created") is None:
                 continue
             cache = tokens.get("cache") or {}
+            reasoning = tokens.get("reasoning", 0)
             records.append(
                 _UsageRecord(
                     started_at=time["created"],
@@ -114,8 +116,10 @@ class OpencodeSource:
                     directory=row["directory"],
                     title=row["title"],
                     input=tokens.get("input", 0),
-                    output=tokens.get("output", 0),
-                    reasoning=tokens.get("reasoning", 0),
+                    # opencode totals reasoning as its own addend; the contract bills
+                    # it inside the output tier and keeps it as a breakdown only.
+                    output=tokens.get("output", 0) + reasoning,
+                    reasoning=reasoning,
                     cache_write=cache.get("write", 0),
                     cache_read=cache.get("read", 0),
                     total=tokens.get("total", 0),
@@ -125,6 +129,9 @@ class OpencodeSource:
 
     def model_ids(self) -> list[str]:
         return sorted({record.model_id for record in self._records()})
+
+    def model_keys(self) -> list[str]:
+        return sorted({model_key(self.id, r.provider_id, r.model_id) for r in self._records()})
 
     def meta(self) -> MetaInfo:
         records = self._records()

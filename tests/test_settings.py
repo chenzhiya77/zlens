@@ -96,7 +96,7 @@ def test_pricing_extract_parses_vlm_json(client_factory, monkeypatch):
 
     body = client.post("/api/pricing/extract", json={"image_base64": "AAAA"}).json()
 
-    assert body["currency"] == "USD"
+    assert body["currency"] == "usd"
     assert body["unit"] == "per_1M_tokens"
     assert body["models"] == [
         {
@@ -107,6 +107,41 @@ def test_pricing_extract_parses_vlm_json(client_factory, monkeypatch):
             "cache_write": 0,
         }
     ]
+
+
+def _extract(client_factory, monkeypatch, vlm_reply):
+    from zlens.core import vlm as vlm_mod
+
+    monkeypatch.setattr(
+        vlm_mod, "chat", lambda settings, *, text=None, image_base64=None: vlm_reply
+    )
+    client = client_factory(rows=[])
+    client.put(
+        "/api/settings/vlm",
+        json={"base_url": "http://vlm.test/v1", "model": "m", "api_key": "sk-x"},
+    )
+    return client.post("/api/pricing/extract", json={"image_base64": "AAAA"}).json()
+
+
+def test_pricing_extract_normalizes_cny_marks(client_factory, monkeypatch):
+    body = _extract(
+        client_factory,
+        monkeypatch,
+        '{"currency":"人民币","models":[{"model_id":"glm-5.3-flash","input":0.4}]}',
+    )
+
+    assert body["currency"] == "cny"
+
+
+def test_pricing_extract_leaves_unstated_currency_null(client_factory, monkeypatch):
+    """Defaulting a silent screenshot to USD would relabel a domestic price."""
+    body = _extract(
+        client_factory,
+        monkeypatch,
+        '{"models":[{"model_id":"glm-5.3-flash","input":0.4}]}',
+    )
+
+    assert body["currency"] is None
 
 
 def test_pricing_extract_forwards_focus_model(client_factory, monkeypatch):

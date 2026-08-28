@@ -2,7 +2,7 @@ from zlens.sources.minimax import MinimaxSource
 
 _EVENTS = [
     {"ms": 1_700_000_000_000, "input": 100, "output": 10, "cache_read": 1000, "total": 1110},
-    {"ms": 1_700_000_100_000, "input": 200, "output": 20, "cache_write": 50, "total": 220},
+    {"ms": 1_700_000_100_000, "input": 200, "output": 20, "cache_write": 50, "total": 270},
 ]
 
 
@@ -18,6 +18,9 @@ def test_minimax_adapter_parses_ledger(make_minimax_sessions, tmp_path):
     )
     source = MinimaxSource(root)
 
+    # Minimax serves every record itself: the provider segment repeats the source.
+    assert source.model_keys() == ["minimax|minimax|MiniMax-M3"]
+
     overview = source.overview()
     assert overview.request_count == 2
     assert overview.input_tokens == 300
@@ -25,7 +28,15 @@ def test_minimax_adapter_parses_ledger(make_minimax_sessions, tmp_path):
     assert overview.reasoning_tokens == 0  # upstream has no reasoning field
     assert overview.cache_creation_tokens == 50
     assert overview.cache_read_tokens == 1000
-    assert overview.total_tokens == 1330
+    assert overview.total_tokens == 1380
+    # MiniMax reports its tiers disjoint, so it needs no normalization here.
+    assert (
+        overview.input_tokens
+        + overview.output_tokens
+        + overview.cache_creation_tokens
+        + overview.cache_read_tokens
+        == overview.total_tokens
+    )
 
     row = overview.by_model[0]
     assert (row.source, row.provider_id, row.model_id) == ("minimax", "minimax", "MiniMax-M3")

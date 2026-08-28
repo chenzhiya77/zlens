@@ -21,6 +21,7 @@ from zlens.sources.models import (
     ModelUsageSummary,
     Overview,
     ProjectModelUsage,
+    model_key,
 )
 from zlens.sources.timeutil import ms_to_datetime as _ms_to_datetime
 
@@ -51,9 +52,18 @@ _REQUIRED_COLUMNS = {
     "session": {"id", "directory", "title"},
 }
 
+# ZCode bills the whole prompt as `input_tokens` and reports the cached prefix
+# inside it (`cache_read_input_tokens` <= `input_tokens` on every row of the live
+# db), while the app's contract is four mutually exclusive buckets that sum to
+# total_tokens. So the cached part is subtracted here, per row and clamped — a
+# single malformed record must not be able to offset a good one into a negative
+# input. `reasoning_tokens` already sits inside `output_tokens`
+# (computed_total_tokens == input + output on every row), hence untouched.
 _AGGREGATE_SQL = """
     COUNT(*) AS request_count,
-    COALESCE(SUM(input_tokens), 0) AS input_tokens,
+    COALESCE(SUM(MAX(
+        COALESCE(input_tokens, 0) - COALESCE(cache_read_input_tokens, 0)
+        - COALESCE(cache_creation_input_tokens, 0), 0)), 0) AS input_tokens,
     COALESCE(SUM(output_tokens), 0) AS output_tokens,
     COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
     COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_tokens,
@@ -90,6 +100,15 @@ class ZcodeSource:
                 "SELECT DISTINCT model_id FROM model_usage WHERE model_id IS NOT NULL"
             ).fetchall()
         return sorted(row["model_id"] for row in rows)
+
+    def model_keys(self) -> list[str]:
+        with self._cursor() as con:
+            rows = con.execute(
+                "SELECT DISTINCT provider_id, model_id FROM model_usage WHERE model_id IS NOT NULL"
+            ).fetchall()
+        return sorted(
+            model_key(self.id, row["provider_id"] or "unknown", row["model_id"]) for row in rows
+        )
 
     def meta(self) -> MetaInfo:
         with self._cursor() as con:

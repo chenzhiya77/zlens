@@ -1,10 +1,12 @@
 {
-  "$note": "Prices are USD per 1,000,000 tokens. Copy this file to pricing.json (gitignored) and edit freely. A model absent from the table is rendered as tokens-only and never priced. cache_write is optional; models without it simply show zero cache-write cost.",
+  "$note": "Prices are per 1,000,000 tokens, always in CNY — the app's single money base, so no row carries a currency label. The one automatic conversion happens while entering: a recognised $ screenshot is folded at fx_usd_cny before it lands in the row, and a screenshot with no currency mark at all is entered as CNY untouched. A hand-copied dollar price is yours to convert into the number you type — the app cannot tell $4 from ¥4 by looking at a digit, so there is deliberately no in-row fold that could multiply a CNY price by mistake. fx_usd_cny (1 USD = ? CNY) is yours to fill and is never used in costing, which is why it ships as null instead of a guessed market rate. A row may also carry an optional 'buyout_amount': the one-off CNY you paid for a plan covering that channel. It is never multiplied by usage and never amortised into a per-token price — it is summed into its own overview figure ('买断支出') shown beside, and never added to, the consumption total. Omitting it means 'this row is not a buyout'; writing 0 means 'a plan that cost nothing', and the two are kept visibly apart. Keys are per-channel triples 'source|provider_id|model_id': the same model served through two channels gets two independent prices, never one shared row. Copy the exact key from the Pricing page, which lists every channel zlens sees — a hand-typed key that matches no channel simply prices nothing. Copy this file to pricing.json (gitignored) and edit freely. A channel absent from the table is rendered tokens-only and never priced. cache_write is optional; entries without it simply show zero cache-write cost.",
   "version": 1,
+  "fx_usd_cny": null,
   "models": {
-    "claude-opus-4-1": { "input": 15.0, "output": 75.0, "cache_read": 1.5, "cache_write": 18.75 },
-    "claude-sonnet-4-5": { "input": 3.0, "output": 15.0, "cache_read": 0.3, "cache_write": 3.75 },
-    "claude-haiku-4-5": { "input": 1.0, "output": 5.0, "cache_read": 0.1, "cache_write": 1.25 },
-    "gpt-5-codex": { "input": 1.25, "output": 10.0, "cache_read": 0.125 }
+    "zcode|<provider_id>|glm-5.3-flash": { "input": 0.4, "output": 1.4, "cache_read": 0.115 },
+    "zcode|<provider_id>|kimi-k3": { "input": 4.0, "output": 16.0, "cache_read": 1.0 },
+    "zcode|<provider_id>|claude-sonnet-4-5": { "input": 21.6, "output": 108.0, "cache_read": 2.16, "cache_write": 27.0 },
+    "opencode|anthropic|claude-haiku-4-5": { "input": 7.2, "output": 36.0, "cache_read": 0.72 },
+    "zcode|<provider_id>|plan-only-model": { "input": 0, "output": 0, "buyout_amount": 299.0 }
   }
 }

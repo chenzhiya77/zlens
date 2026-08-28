@@ -1,5 +1,7 @@
 line-length = 100
 target-version = "py312"
+# 一次性探针脚本的去处(gitignored,不是仓库代码,不该卡住 make check)
+extend-exclude = ["scratch"]
 
 [lint]
 select = ["E", "F", "I", "UP"]

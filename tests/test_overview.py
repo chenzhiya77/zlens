@@ -1,19 +1,21 @@
 def test_overview_totals_and_by_model_ranking(client_factory):
+    # Stored the way ZCode actually stores it: computed_total_tokens == input +
+    # output, and the cached prefix sits *inside* input_tokens (see zcode.py).
     rows = [
         {
             "provider_id": "anthropic",
             "model_id": "claude-a",
-            "input_tokens": 100,
+            "input_tokens": 1120,
             "output_tokens": 10,
             "reasoning_tokens": 5,
             "cache_creation_input_tokens": 20,
             "cache_read_input_tokens": 1000,
-            "computed_total_tokens": 1135,
+            "computed_total_tokens": 1130,
         },
         {
             "provider_id": "anthropic",
             "model_id": "claude-a",
-            "input_tokens": 50,
+            "input_tokens": 550,
             "output_tokens": 5,
             "cache_read_input_tokens": 500,
             "computed_total_tokens": 555,
@@ -24,18 +26,26 @@ def test_overview_totals_and_by_model_ranking(client_factory):
             "input_tokens": 10,
             "output_tokens": 2,
             "reasoning_tokens": 1,
-            "computed_total_tokens": 13,
+            "computed_total_tokens": 12,
         },
     ]
     body = client_factory(rows).get("/api/overview").json()
 
     assert body["request_count"] == 3
+    # The cached prefix is reported once, in its own tier: input is what is left.
     assert body["input_tokens"] == 160
     assert body["output_tokens"] == 17
     assert body["reasoning_tokens"] == 6
     assert body["cache_creation_tokens"] == 20
     assert body["cache_read_tokens"] == 1500
-    assert body["total_tokens"] == 1703
+    assert body["total_tokens"] == 1697
+    assert (
+        body["input_tokens"]
+        + body["output_tokens"]
+        + body["cache_creation_tokens"]
+        + body["cache_read_tokens"]
+        == body["total_tokens"]
+    )
 
     assert [m["model_id"] for m in body["by_model"]] == ["claude-a", "gpt-b"]
     top = body["by_model"][0]
@@ -43,7 +53,7 @@ def test_overview_totals_and_by_model_ranking(client_factory):
     assert top["request_count"] == 2
     assert top["input_tokens"] == 150
     assert top["cache_read_tokens"] == 1500
-    assert top["total_tokens"] == 1690
+    assert top["total_tokens"] == 1685
 
 
 def test_overview_on_empty_database(client_factory):

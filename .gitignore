@@ -26,3 +26,6 @@ Thumbs.db
 
 # pytest basetemp (see pyproject.toml)
 .pytest_tmp/
+
+# 一次性探针/诊断脚本(不入库,也不进 ruff;结论请写进 docs/)
+scratch/
