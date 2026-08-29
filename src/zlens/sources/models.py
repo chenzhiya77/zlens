@@ -63,6 +63,9 @@ class ModelUsageSummary(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+    # cache_read / (input + cache_read + cache_creation): share of the prompt
+    # tokens served from cache. Denominator 0 -> None (not 0%, not 100%).
+    cache_hit_rate: float | None = None
 
 
 SortColumn = Literal["total_tokens", "estimated_cost", "request_count"]
@@ -105,6 +108,9 @@ class Overview(BaseModel):
     # Null means the price table has no buyout row at all — "never filled" must stay
     # distinguishable from a deliberate ¥0 purchase (AGENTS.md: 没填≠0).
     buyout_total: float | None = None
+    # cache_read / (input + cache_read + cache_creation) over the merged totals;
+    # the denominator is all prompt tokens (方案 A, 分母含缓存写). 0 -> None.
+    cache_hit_rate: float | None = None
     by_model: list[ModelUsageSummary]
 
 

@@ -61,6 +61,8 @@ export interface ModelUsageSummary {
   cache_read_tokens: number;
   total_tokens: number;
   estimated_cost: number | null;
+  /** cache_read / (input + cache_read + cache_creation); denominator 0 → null. */
+  cache_hit_rate: number | null;
 }
 
 export interface Overview {
@@ -78,6 +80,8 @@ export interface Overview {
    * zero (免费套餐) and must stay distinguishable from null.
    */
   buyout_total: number | null;
+  /** cache_read / (input + cache_read + cache_creation) 按全量合并;分母 0 → null。按 token 计。 */
+  cache_hit_rate: number | null;
   by_model: ModelUsageSummary[];
 }
 

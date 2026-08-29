@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 缓存命中率(T21):`/api/overview` 总计与每个模型行新增 `cache_hit_rate`,公式为
+  **缓存读 ÷(输入 + 缓存读 + 缓存写)**(方案 A,分母 = 全部 prompt token,与四档互斥契约
+  天然对齐);分母为 0 时是 `null` 而不是 0% 或 100%。当前三源缓存写恒 0,该选择零代价,
+  纯为将来买保险——一旦有模型开始写缓存,B 方案会算出「命中率 100% 但仍在按最贵档付费」
+  的荒谬数。KPI 卡上的百分比渲染与「按 token 计」说明在 T24。
+- zcode 逐行 clamp 测试补全(T25,只补测试不改逻辑):锁死「一行 `cache_read > input` 的
+  脏数据只让该行贡献 0、不能抵消其它正常行」的行为,并用反向断言证明测试有约束力——
+  把 SQL 里的 `MAX` 挪到 `SUM` 外在这组数据上会得到不同结果。
 - 表格排序参数(T19):`/api/overview` 与 `/api/models` 新增 `sort`
   (`total_tokens`|`estimated_cost`|`request_count`,缺省 `total_tokens` 保持既有顺序)与
   `order`(缺省 `desc`),非法值 422 并列出可选列。**未计价行恒排最后,与升降序无关**——

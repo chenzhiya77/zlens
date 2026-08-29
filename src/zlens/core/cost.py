@@ -129,6 +129,19 @@ def attach_model_costs(models, table: PriceTable):
     return [m.model_copy(update={"estimated_cost": _cost_of(m, table)}) for m in models]
 
 
+def _cache_hit_rate(cache_read: int, cache_creation: int, billed_input: int) -> float | None:
+    """cache_read over all prompt tokens (方案 A: 分母含缓存写).
+
+    The buckets are mutually exclusive by contract, so input + cache_read +
+    cache_creation is the whole prompt. Denominator 0 means there was no prompt
+    at all — that is "unknown" (None), never a fabricated 0% or 100%.
+    """
+    denominator = billed_input + cache_read + cache_creation
+    if denominator == 0:
+        return None
+    return round(cache_read / denominator, 6)
+
+
 def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     """Attach per-model costs; the total only appears when every model is priced.
 
@@ -137,6 +150,16 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     questions and are never added together.
     """
     by_model = attach_model_costs(overview.by_model, table)
+    by_model = [
+        m.model_copy(
+            update={
+                "cache_hit_rate": _cache_hit_rate(
+                    m.cache_read_tokens, m.cache_creation_tokens, m.input_tokens
+                )
+            }
+        )
+        for m in by_model
+    ]
     fully_priced = bool(by_model) and all(m.estimated_cost is not None for m in by_model)
     total = round(sum(m.estimated_cost for m in by_model), 6) if fully_priced else None
     return overview.model_copy(
@@ -144,6 +167,9 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
             "by_model": by_model,
             "estimated_cost": total,
             "buyout_total": table.buyout_total(),
+            "cache_hit_rate": _cache_hit_rate(
+                overview.cache_read_tokens, overview.cache_creation_tokens, overview.input_tokens
+            ),
         },
     )
 
