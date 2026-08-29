@@ -93,12 +93,10 @@ export default function ModelTable({
 }) {
   const labelSpan = onAlias ? 3 : 2;
   return (
-    <>
-      <p className="mb-2 text-xs text-zinc-600">
-        单位：token 列为 tokens；输入 / 输出 / 缓存写 / 缓存读 四列互斥、相加即总计，其中「输入」只算
-        <span className="text-zinc-500">未命中缓存</span>
-        的部分（缓存命中的 token 只按缓存档计价一次）；成本列按价格表折算人民币 ¥
-      </p>
+    /* 表格卡片(设计稿 2:61):白底圆角卡包住表头/数据行/合计行,表头的浅色
+       条(#fafafa)只有落在卡片里才看得见——直接坐在页面底上会与页面同色。
+       口径说明不放页面上,导出文件的文件头里已带同一份(T22)。 */
+    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
       {/* 表格比栏宽时在自己的壳里横滚:此前 w-full 表格的最小宽由内容决定,
           压窄页面会穿过容器顶出文档级横向滚动。 */}
       <div className="overflow-x-auto">
@@ -178,7 +176,7 @@ export default function ModelTable({
           </tbody>
           {totals && (
             <tfoot>
-              <tr className="border-t border-zinc-700 bg-zinc-900 text-sm">
+              <tr className="border-t border-zinc-700 bg-zinc-800/40 text-sm">
                 <td colSpan={labelSpan} className="py-2 pr-4 text-xs text-zinc-500">
                   全部合计 · 共 {modelCount ?? models.length} 个模型
                 </td>
@@ -212,7 +210,7 @@ export default function ModelTable({
           )}
         </table>
       </div>
-    </>
+    </div>
   );
 }
 
