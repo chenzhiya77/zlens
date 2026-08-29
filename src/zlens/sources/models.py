@@ -93,6 +93,25 @@ def sort_usage_rows(
     return sorted(rows, key=key, reverse=reverse)
 
 
+class MetricDelta(BaseModel):
+    """One metric's period-over-period figure.
+
+    `previous` ships whenever the previous period was measured at all;
+    `change_rate` additionally needs both sides present and a non-zero base —
+    null means "cannot say", never "no change".
+    """
+
+    previous: float | None = None
+    change_rate: float | None = None
+
+
+class PeriodDelta(BaseModel):
+    """环比 against the previous equal-length window (等长前移, not calendar months)."""
+
+    request_count: MetricDelta
+    estimated_cost: MetricDelta
+
+
 class Overview(BaseModel):
     request_count: int
     input_tokens: int
@@ -111,6 +130,10 @@ class Overview(BaseModel):
     # cache_read / (input + cache_read + cache_creation) over the merged totals;
     # the denominator is all prompt tokens (方案 A, 分母含缓存写). 0 -> None.
     cache_hit_rate: float | None = None
+    # 环比 vs the previous equal-length window. Null unless a closed window is
+    # given AND the previous window is fully inside the data range AND non-empty —
+    # a missing previous period must vanish, not render as "+300%".
+    delta: PeriodDelta | None = None
     by_model: list[ModelUsageSummary]
 
 
@@ -171,6 +194,7 @@ class DailyModelUsage(BaseModel):
 
 
 class DailyTrends(BaseModel):
+    granularity: str = "day"  # echoed back so the client can confirm the bucket key
     days: list[DailyUsage]
     by_model: list[DailyModelUsage]
 

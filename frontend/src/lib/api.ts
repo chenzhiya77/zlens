@@ -65,6 +65,18 @@ export interface ModelUsageSummary {
   cache_hit_rate: number | null;
 }
 
+export interface MetricDelta {
+  /** Previous equal-length window's value; null when it wasn't fully measured. */
+  previous: number | null;
+  /** (current-previous)/previous; null when either side is unknown or base is 0. */
+  change_rate: number | null;
+}
+
+export interface PeriodDelta {
+  request_count: MetricDelta;
+  estimated_cost: MetricDelta;
+}
+
 export interface Overview {
   request_count: number;
   input_tokens: number;
@@ -82,6 +94,12 @@ export interface Overview {
   buyout_total: number | null;
   /** cache_read / (input + cache_read + cache_creation) 按全量合并;分母 0 → null。按 token 计。 */
   cache_hit_rate: number | null;
+  /**
+   * 环比 vs the previous equal-length window; null unless a closed window is set
+   * and the previous window is fully inside the data range. Never render a
+   * placeholder when null — no "—%", no 0%.
+   */
+  delta: PeriodDelta | null;
   by_model: ModelUsageSummary[];
 }
 
@@ -117,6 +135,8 @@ export interface DailyModelUsage {
 }
 
 export interface DailyTrends {
+  /** Echoed bucket key: "day" or "month" (granularity param). */
+  granularity: string;
   days: DailyUsage[];
   by_model: DailyModelUsage[];
 }

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 总览环比(T16):`/api/overview` 新增 `delta`,对**等长前移**的上期窗口(选 30 天就比
+  紧挨着的前 30 天,不做自然月对齐——天数不同比总量会得出相反结论)给出 `request_count`
+  与 `estimated_cost` 的 `previous` 与 `change_rate`。三条诚实护栏:上期窗口不完整(起点早于
+  首条数据)或完全无请求 → `delta` 整体为 null,绝不显示"+300%"式的假环比;任一侧成本
+  未计价 → 该项 `change_rate` 为 null 但 `previous` 照常给出;previous 为 0 → `change_rate`
+  为 null 而非 Infinity。「全部」或半开窗口无环比。前端红涨绿跌渲染在 T24。
+- 趋势月度聚合(T17):`/api/trends/daily` 新增 `granularity=day|month`(缺省 day,行为不变,
+  回显字段 `granularity` 便于前端确认)。月度与日度**共用同一段未计价判定**(月内任一天
+  未计价 → 该月成本 null),token 各档两种粒度求和一致;没有数据的月份不补 0。「全部」
+  周期走按月柱状图的渲染在 T24。
 - 缓存命中率(T21):`/api/overview` 总计与每个模型行新增 `cache_hit_rate`,公式为
   **缓存读 ÷(输入 + 缓存读 + 缓存写)**(方案 A,分母 = 全部 prompt token,与四档互斥契约
   天然对齐);分母为 0 时是 `null` 而不是 0% 或 100%。当前三源缓存写恒 0,该选择零代价,

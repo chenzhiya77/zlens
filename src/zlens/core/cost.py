@@ -17,6 +17,7 @@ pricing typo must never break the app.
 """
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -25,6 +26,7 @@ from zlens.sources.models import (
     DailyModelUsage,
     DailyTrends,
     DailyUsage,
+    MetricDelta,
     Overview,
     ProjectModelUsage,
     ProjectsReport,
@@ -214,34 +216,67 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
     return ProjectsReport(projects=projects)
 
 
+def _fold_usage(
+    rows: list[DailyModelUsage], table: PriceTable, bucket: Callable[[DailyModelUsage], str]
+) -> tuple[list[DailyUsage], list[DailyModelUsage]]:
+    """The one fold both granularities share (T17): token buckets always sum
+    (they don't depend on the price table), while a bucket's cost stays null
+    when any model serving it is unpriced — same honesty rule as the overview.
+    """
+    by_model = attach_model_costs(rows, table)
+    totals: dict[str, dict[str, int]] = {}
+    costs: dict[str, float] = {}
+    sources: dict[str, set[str]] = {}
+    unpriced: set[str] = set()
+    for row in by_model:
+        key = bucket(row)
+        acc = totals.setdefault(key, dict.fromkeys(_SUMMARY_KEYS, 0))
+        sources.setdefault(key, set()).add(row.source)
+        for key_field in _SUMMARY_KEYS:
+            acc[key_field] += getattr(row, key_field)
+        if row.estimated_cost is None:
+            unpriced.add(key)
+        else:
+            costs[key] = costs.get(key, 0.0) + row.estimated_cost
+
+    usage = [
+        DailyUsage(
+            day=key,
+            source="+".join(sorted(sources[key])),
+            estimated_cost=None if key in unpriced else round(costs[key], 6),
+            **totals[key],
+        )
+        for key in sorted(totals)
+    ]
+    return usage, by_model
+
+
 def fold_daily(rows: list[DailyModelUsage], table: PriceTable) -> DailyTrends:
     """Fold per-model-per-day rows into daily totals plus the long-format series.
 
     A day's total cost stays null when any model serving that day is unpriced,
     mirroring the overview rule: partial totals would understate spend.
     """
-    by_model = attach_model_costs(rows, table)
-    totals: dict[str, dict[str, int]] = {}
-    day_costs: dict[str, float] = {}
-    day_sources: dict[str, set[str]] = {}
-    unpriced_days: set[str] = set()
-    for row in by_model:
-        acc = totals.setdefault(row.day, dict.fromkeys(_SUMMARY_KEYS, 0))
-        day_sources.setdefault(row.day, set()).add(row.source)
-        for key in _SUMMARY_KEYS:
-            acc[key] += getattr(row, key)
-        if row.estimated_cost is None:
-            unpriced_days.add(row.day)
-        else:
-            day_costs[row.day] = day_costs.get(row.day, 0.0) + row.estimated_cost
+    usage, by_model = _fold_usage(rows, table, lambda row: row.day)
+    return DailyTrends(days=usage, by_model=by_model, granularity="day")
 
-    days = [
-        DailyUsage(
-            day=day,
-            source="+".join(sorted(day_sources[day])),
-            estimated_cost=None if day in unpriced_days else round(day_costs[day], 6),
-            **totals[day],
-        )
-        for day in sorted(totals)
-    ]
-    return DailyTrends(days=days, by_model=by_model)
+
+def fold_monthly(rows: list[DailyModelUsage], table: PriceTable) -> DailyTrends:
+    """Same fold with the bucket cut to 'YYYY-MM' — the「全部」view.
+
+    Reuses _fold_usage, so one unpriced day poisons its whole month's cost the
+    same way it poisons a day. Months without data never appear: no zero-filled
+    fake months just to draw a fuller x axis.
+    """
+    usage, by_model = _fold_usage(rows, table, lambda row: row.day[:7])
+    return DailyTrends(days=usage, by_model=by_model, granularity="month")
+
+
+def metric_delta(current: float | int | None, previous: float | int | None) -> MetricDelta:
+    """环比 of one metric (T16). previous rides along whenever it was measured;
+    change_rate needs both sides and a non-zero base — null means "cannot say",
+    never "no change", and a 0 base must not produce Infinity."""
+    change = None
+    if current is not None and previous is not None and previous != 0:
+        change = round((current - previous) / previous, 6)
+    return MetricDelta(previous=previous, change_rate=change)
