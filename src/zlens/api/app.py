@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from zlens import __version__
 from zlens.api.routers import (
+    export,
     health,
     meta,
     models,
@@ -24,9 +25,7 @@ from zlens.api.routers import (
     projects,
     trends,
 )
-from zlens.api.routers import (
-    settings as settings_router,
-)
+from zlens.api.routers import settings as settings_router
 from zlens.core.config import Settings, load_settings, with_config_overlay
 from zlens.sources.base import SourceError, SourceUnavailable
 from zlens.sources.minimax import MinimaxSource
@@ -67,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(pricing.router)
     app.include_router(settings_router.router)
+    app.include_router(export.router)
 
     if _STATIC_DIST.is_dir():
         # Single-process delivery: API routes above win by registration order,
