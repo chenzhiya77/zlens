@@ -14,6 +14,7 @@ from pathlib import Path
 from zlens.sources.base import SourceUnavailable
 from zlens.sources.models import (
     DailyModelUsage,
+    DateWindow,
     HealthReport,
     MetaInfo,
     ModelsRanking,
@@ -73,7 +74,7 @@ class MinimaxSource:
             raise SourceUnavailable(f"MiniMax sessions directory not found: {self._sessions_dir}")
         return sorted(p.parent for p in self._sessions_dir.glob("*/*/*/*/ledger.jsonl"))
 
-    def _records(self) -> list[_UsageRecord]:
+    def _records(self, window: DateWindow | None = None) -> list[_UsageRecord]:
         records: list[_UsageRecord] = []
         for session_dir in self._session_dirs():
             model = self._model_of(session_dir)
@@ -97,6 +98,8 @@ class MinimaxSource:
                     usage = message.get("usage")
                     if not usage:
                         continue
+                    if window is not None and not window.contains_day(ms_to_local_day(created_ms)):
+                        continue  # load-level pushdown: the ledger files have no query layer
                     records.append(
                         _UsageRecord(
                             started_at=created_ms,
@@ -127,11 +130,11 @@ class MinimaxSource:
     def model_ids(self) -> list[str]:
         return sorted({r.model_id for r in self._records()})
 
-    def model_keys(self) -> list[str]:
-        return sorted({model_key(self.id, self.id, r.model_id) for r in self._records()})
+    def model_keys(self, window: DateWindow | None = None) -> list[str]:
+        return sorted({model_key(self.id, self.id, r.model_id) for r in self._records(window)})
 
-    def meta(self) -> MetaInfo:
-        records = self._records()
+    def meta(self, window: DateWindow | None = None) -> MetaInfo:
+        records = self._records(window)
         stamps = [r.started_at for r in records]
         return MetaInfo(
             source_id=self.id,
@@ -141,8 +144,8 @@ class MinimaxSource:
             generated_at=datetime.now().astimezone(),
         )
 
-    def overview(self) -> Overview:
-        records = self._records()
+    def overview(self, window: DateWindow | None = None) -> Overview:
+        records = self._records(window)
         by_model: dict[str, ModelUsageSummary] = {}
         for r in records:
             row = by_model.setdefault(
@@ -178,9 +181,9 @@ class MinimaxSource:
         }
         return Overview(**totals, by_model=ranked)
 
-    def daily_by_model(self) -> list[DailyModelUsage]:
+    def daily_by_model(self, window: DateWindow | None = None) -> list[DailyModelUsage]:
         acc: dict[tuple[str, str], DailyModelUsage] = {}
-        for r in self._records():
+        for r in self._records(window):
             day = ms_to_local_day(r.started_at)
             key = (day, r.model_id)
             row = acc.setdefault(
@@ -207,8 +210,8 @@ class MinimaxSource:
             row.total_tokens += r.total
         return sorted(acc.values(), key=lambda m: (m.day, -m.total_tokens))
 
-    def models_ranking(self) -> ModelsRanking:
-        return ModelsRanking(models=list(self.overview().by_model))
+    def models_ranking(self, window: DateWindow | None = None) -> ModelsRanking:
+        return ModelsRanking(models=list(self.overview(window).by_model))
 
     def usage_by_project_model(self) -> list[ProjectModelUsage]:
         acc: dict[tuple[str, str], ProjectModelUsage] = {}

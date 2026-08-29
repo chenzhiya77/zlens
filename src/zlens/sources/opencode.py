@@ -15,6 +15,7 @@ from pathlib import Path
 from zlens.sources.base import SchemaIncompatible, SourceUnavailable
 from zlens.sources.models import (
     DailyModelUsage,
+    DateWindow,
     HealthReport,
     MetaInfo,
     ModelsRanking,
@@ -87,12 +88,27 @@ class OpencodeSource:
         with self._cursor():
             return True
 
-    def _records(self) -> list[_UsageRecord]:
+    def _records(self, window: DateWindow | None = None) -> list[_UsageRecord]:
+        sql = (
+            "SELECT m.data, s.directory, s.title"
+            " FROM message m LEFT JOIN session s ON s.id = m.session_id"
+        )
+        params: list = []
+        if window is not None:
+            # Pushdown in SQL: the created ms lives inside message.data's JSON, so
+            # extract it there. json_valid guards malformed payloads — they come
+            # back NULL and drop out here exactly like the Python try/except below.
+            created = "json_extract(CASE WHEN json_valid(m.data) THEN m.data END, '$.time.created')"
+            conds = [f"{created} IS NOT NULL"]
+            if window.start is not None:
+                conds.append(f"date({created} / 1000, 'unixepoch', 'localtime') >= ?")
+                params.append(window.start.isoformat())
+            if window.end is not None:
+                conds.append(f"date({created} / 1000, 'unixepoch', 'localtime') <= ?")
+                params.append(window.end.isoformat())
+            sql += " WHERE " + " AND ".join(conds)
         with self._cursor() as con:
-            rows = con.execute(
-                "SELECT m.data, s.directory, s.title"
-                " FROM message m LEFT JOIN session s ON s.id = m.session_id"
-            ).fetchall()
+            rows = con.execute(sql, params).fetchall()
         records: list[_UsageRecord] = []
         for row in rows:
             try:
@@ -130,11 +146,13 @@ class OpencodeSource:
     def model_ids(self) -> list[str]:
         return sorted({record.model_id for record in self._records()})
 
-    def model_keys(self) -> list[str]:
-        return sorted({model_key(self.id, r.provider_id, r.model_id) for r in self._records()})
+    def model_keys(self, window: DateWindow | None = None) -> list[str]:
+        return sorted(
+            {model_key(self.id, r.provider_id, r.model_id) for r in self._records(window)}
+        )
 
-    def meta(self) -> MetaInfo:
-        records = self._records()
+    def meta(self, window: DateWindow | None = None) -> MetaInfo:
+        records = self._records(window)
         stamps = [record.started_at for record in records]
         return MetaInfo(
             source_id=self.id,
@@ -144,8 +162,8 @@ class OpencodeSource:
             generated_at=datetime.now().astimezone(),
         )
 
-    def overview(self) -> Overview:
-        rows = self._model_rows()
+    def overview(self, window: DateWindow | None = None) -> Overview:
+        rows = self._model_rows(window)
         return Overview(
             request_count=sum(row.request_count for row in rows),
             input_tokens=sum(row.input_tokens for row in rows),
@@ -157,9 +175,9 @@ class OpencodeSource:
             by_model=rows,
         )
 
-    def _model_rows(self) -> list[ModelUsageSummary]:
+    def _model_rows(self, window: DateWindow | None = None) -> list[ModelUsageSummary]:
         acc: dict[tuple[str, str], ModelUsageSummary] = {}
-        for record in self._records():
+        for record in self._records(window):
             key = (record.provider_id, record.model_id)
             row = acc.setdefault(
                 key,
@@ -189,9 +207,9 @@ class OpencodeSource:
         row.cache_read_tokens += record.cache_read
         row.total_tokens += record.total
 
-    def daily_by_model(self) -> list[DailyModelUsage]:
+    def daily_by_model(self, window: DateWindow | None = None) -> list[DailyModelUsage]:
         acc: dict[tuple[str, str, str], DailyModelUsage] = {}
-        for record in self._records():
+        for record in self._records(window):
             day = ms_to_local_day(record.started_at)
             key = (day, record.provider_id, record.model_id)
             row = acc.setdefault(
@@ -213,8 +231,8 @@ class OpencodeSource:
             self._add_usage(row, record)
         return sorted(acc.values(), key=lambda row: (row.day, -row.total_tokens))
 
-    def models_ranking(self) -> ModelsRanking:
-        return ModelsRanking(models=self._model_rows())
+    def models_ranking(self, window: DateWindow | None = None) -> ModelsRanking:
+        return ModelsRanking(models=self._model_rows(window))
 
     def usage_by_project_model(self) -> list[ProjectModelUsage]:
         acc: dict[tuple[str, str, str], ProjectModelUsage] = {}

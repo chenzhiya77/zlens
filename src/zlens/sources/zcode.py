@@ -14,6 +14,7 @@ from pathlib import Path
 from zlens.sources.base import SchemaIncompatible, SourceUnavailable
 from zlens.sources.models import (
     DailyModelUsage,
+    DateWindow,
     ErrorGroup,
     HealthReport,
     MetaInfo,
@@ -82,6 +83,28 @@ _AGGREGATE_KEYS = (
 )
 
 
+def _window_sql(window: DateWindow | None) -> tuple[str, list]:
+    """SQL predicate for the closed local-day window, or ("", []) for unbounded.
+
+    Uses the exact same date(started_at / 1000, 'unixepoch', 'localtime')
+    expression as daily_by_model's SELECT, so a window's totals always agree
+    with the day sequence over the same range. Returns the bare conditions
+    (no WHERE keyword); callers join with their own WHERE / AND.
+    """
+    if window is None:
+        return "", []
+    day = "date(started_at / 1000, 'unixepoch', 'localtime')"
+    conds: list[str] = []
+    params: list = []
+    if window.start is not None:
+        conds.append(f"{day} >= ?")
+        params.append(window.start.isoformat())
+    if window.end is not None:
+        conds.append(f"{day} <= ?")
+        params.append(window.end.isoformat())
+    return " AND ".join(conds), params
+
+
 class ZcodeSource:
     id = "zcode"
 
@@ -101,21 +124,27 @@ class ZcodeSource:
             ).fetchall()
         return sorted(row["model_id"] for row in rows)
 
-    def model_keys(self) -> list[str]:
+    def model_keys(self, window: DateWindow | None = None) -> list[str]:
+        where, params = _window_sql(window)
+        predicate = "model_id IS NOT NULL" + (f" AND {where}" if where else "")
         with self._cursor() as con:
             rows = con.execute(
-                "SELECT DISTINCT provider_id, model_id FROM model_usage WHERE model_id IS NOT NULL"
+                f"SELECT DISTINCT provider_id, model_id FROM model_usage WHERE {predicate}",
+                params,
             ).fetchall()
         return sorted(
             model_key(self.id, row["provider_id"] or "unknown", row["model_id"]) for row in rows
         )
 
-    def meta(self) -> MetaInfo:
+    def meta(self, window: DateWindow | None = None) -> MetaInfo:
+        where, params = _window_sql(window)
+        clause = f" WHERE {where}" if where else ""
         with self._cursor() as con:
             row = con.execute(
                 "SELECT COUNT(*) AS n,"
                 " MIN(started_at) AS first_ms, MAX(started_at) AS last_ms"
-                " FROM model_usage"
+                f" FROM model_usage{clause}",
+                params,
             ).fetchone()
         return MetaInfo(
             source_id=self.id,
@@ -125,13 +154,18 @@ class ZcodeSource:
             generated_at=datetime.now().astimezone(),
         )
 
-    def overview(self) -> Overview:
+    def overview(self, window: DateWindow | None = None) -> Overview:
+        where, params = _window_sql(window)
+        clause = f" WHERE {where}" if where else ""
         with self._cursor() as con:
-            totals = con.execute(f"SELECT {_AGGREGATE_SQL} FROM model_usage").fetchone()
+            totals = con.execute(
+                f"SELECT {_AGGREGATE_SQL} FROM model_usage{clause}", params
+            ).fetchone()
             rows = con.execute(
                 f"SELECT provider_id, model_id, {_AGGREGATE_SQL}"
-                " FROM model_usage GROUP BY provider_id, model_id"
-                " ORDER BY total_tokens DESC"
+                f" FROM model_usage{clause} GROUP BY provider_id, model_id"
+                " ORDER BY total_tokens DESC",
+                params,
             ).fetchall()
         by_model = [
             ModelUsageSummary(
@@ -144,15 +178,18 @@ class ZcodeSource:
         ]
         return Overview(**{key: totals[key] for key in _AGGREGATE_KEYS}, by_model=by_model)
 
-    def daily_by_model(self) -> list[DailyModelUsage]:
+    def daily_by_model(self, window: DateWindow | None = None) -> list[DailyModelUsage]:
+        where, params = _window_sql(window)
+        clause = f" WHERE {where}" if where else ""
         with self._cursor() as con:
             rows = con.execute(
                 "SELECT date(started_at / 1000, 'unixepoch', 'localtime') AS day,"
                 " provider_id, model_id,"
                 f" {_AGGREGATE_SQL}"
-                " FROM model_usage"
+                f" FROM model_usage{clause}"
                 " GROUP BY day, provider_id, model_id"
-                " ORDER BY day, total_tokens DESC"
+                " ORDER BY day, total_tokens DESC",
+                params,
             ).fetchall()
         return [
             DailyModelUsage(
@@ -165,12 +202,15 @@ class ZcodeSource:
             for row in rows
         ]
 
-    def models_ranking(self) -> ModelsRanking:
+    def models_ranking(self, window: DateWindow | None = None) -> ModelsRanking:
+        where, params = _window_sql(window)
+        clause = f" WHERE {where}" if where else ""
         with self._cursor() as con:
             rows = con.execute(
                 f"SELECT provider_id, model_id, {_AGGREGATE_SQL}"
-                " FROM model_usage GROUP BY provider_id, model_id"
-                " ORDER BY total_tokens DESC"
+                f" FROM model_usage{clause} GROUP BY provider_id, model_id"
+                " ORDER BY total_tokens DESC",
+                params,
             ).fetchall()
         return ModelsRanking(
             models=[

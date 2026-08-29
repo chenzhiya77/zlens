@@ -13,7 +13,8 @@ cached prefix *inside* its input must subtract it in its adapter — leaving it
 nested charges those tokens twice, at the full input price.
 """
 
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -25,6 +26,27 @@ def model_key(source: str, provider_id: str, model_id: str) -> str:
     the same model id served through two channels never shares one price.
     """
     return f"{source}|{provider_id}|{model_id}"
+
+
+@dataclass(frozen=True, slots=True)
+class DateWindow:
+    """Closed local-day window [start, end]; a None bound is unbounded.
+
+    The API accepts only absolute ISO dates — a relative expression like "近 7 天"
+    is the frontend's to translate, because its anchor (today vs the last request)
+    is a product decision, not an API guess. Default (no window) means the full
+    history, so "全部" needs no special branch anywhere downstream.
+    """
+
+    start: date | None = None
+    end: date | None = None
+
+    def contains_day(self, day: str) -> bool:
+        """Membership for a 'YYYY-MM-DD' local-day string as produced by the
+        adapters' day cut (SQL date(...) or ms_to_local_day)."""
+        return (self.start is None or day >= self.start.isoformat()) and (
+            self.end is None or day <= self.end.isoformat()
+        )
 
 
 class ModelUsageSummary(BaseModel):

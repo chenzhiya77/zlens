@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 日期窗口参数下推(T15):`/api/overview`、`/api/trends/daily`、`/api/models`、`/api/meta`
+  新增 `start` / `end` 绝对日期参数(ISO `YYYY-MM-DD`,**闭区间**,按本地日切),缺省 = 全量、
+  行为与之前完全一致;`start > end` 返回 422。窗口在**三个适配器内部下推**(zcode 用
+  `date(started_at/1000,…,'localtime')` 与日序列同一条表达式、opencode 用 `json_valid` 守护的
+  `json_extract` 在 SQL 层过滤、minimax 在账本装载层按日剪枝),不在 API 层拿全量再筛——
+  否则「某天未计价则该天成本为 null」的判定会被外层过滤破坏。相对窗口(「近 7 天」)由前端
+  翻译成绝对日期,后端不猜锚点。
+
 - 多来源支持:新增 MiniMax Code 与 opencode 数据源适配器;API 层 MultiSource 合并展示,\n  每个明细行带 `source` 标记,全部端点支持 `?source=` 过滤;前端表格与错误分布显示来源。\n- 六个数据视图全部升级为多来源合并视图(趋势序列按\"来源/模型\"区分)。\n- 全部六个数据视图:总览、日趋势(多序列折线 + 时间范围切换 + 每日/每周/累计活动图)、
   按模型(占比环形图 + 排行)、按项目、性能(P50/P90/P99)、健康度(重试/错误分布)。
 - 前端壳与总览视图(React SPA:六视图导航、KPI 大数字卡片行、按模型明细表、

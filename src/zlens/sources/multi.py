@@ -11,6 +11,7 @@ from datetime import datetime
 from zlens.sources.base import SchemaIncompatible, SourceAdapter, SourceError, SourceUnavailable
 from zlens.sources.models import (
     DailyModelUsage,
+    DateWindow,
     HealthReport,
     MetaInfo,
     ModelsRanking,
@@ -65,14 +66,14 @@ class MultiSource:
             ids.update(adapter.model_ids())
         return sorted(ids)
 
-    def model_keys(self) -> list[str]:
+    def model_keys(self, window: DateWindow | None = None) -> list[str]:
         keys: set[str] = set()
         for adapter in self._active_or_raise():
-            keys.update(adapter.model_keys())
+            keys.update(adapter.model_keys(window))
         return sorted(keys)
 
-    def meta(self) -> MetaInfo:
-        metas = [a.meta() for a in self._active_or_raise()]
+    def meta(self, window: DateWindow | None = None) -> MetaInfo:
+        metas = [a.meta(window) for a in self._active_or_raise()]
         firsts = [m.first_request_at for m in metas if m.first_request_at is not None]
         lasts = [m.last_request_at for m in metas if m.last_request_at is not None]
         return MetaInfo(
@@ -83,8 +84,8 @@ class MultiSource:
             generated_at=datetime.now().astimezone(),
         )
 
-    def overview(self) -> Overview:
-        parts = [a.overview() for a in self._active_or_raise()]
+    def overview(self, window: DateWindow | None = None) -> Overview:
+        parts = [a.overview(window) for a in self._active_or_raise()]
         return Overview(
             request_count=sum(p.request_count for p in parts),
             input_tokens=sum(p.input_tokens for p in parts),
@@ -100,12 +101,12 @@ class MultiSource:
             ),
         )
 
-    def daily_by_model(self) -> list[DailyModelUsage]:
-        rows = [row for a in self._active_or_raise() for row in a.daily_by_model()]
+    def daily_by_model(self, window: DateWindow | None = None) -> list[DailyModelUsage]:
+        rows = [row for a in self._active_or_raise() for row in a.daily_by_model(window)]
         return sorted(rows, key=lambda r: (r.day, -r.total_tokens))
 
-    def models_ranking(self) -> ModelsRanking:
-        models = [row for a in self._active_or_raise() for row in a.models_ranking().models]
+    def models_ranking(self, window: DateWindow | None = None) -> ModelsRanking:
+        models = [row for a in self._active_or_raise() for row in a.models_ranking(window).models]
         return ModelsRanking(models=sorted(models, key=lambda m: m.total_tokens, reverse=True))
 
     def usage_by_project_model(self) -> list[ProjectModelUsage]:
