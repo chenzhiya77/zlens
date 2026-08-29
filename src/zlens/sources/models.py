@@ -53,7 +53,9 @@ class Overview(BaseModel):
     # One-off buyout/plan spend from the price table. Filled by the cost layer, not
     # by adapters: it is what was paid, independent of how much was consumed, so it
     # never joins `estimated_cost` and is never gated by the unpriced-model rule.
-    buyout_total: float = 0.0
+    # Null means the price table has no buyout row at all — "never filled" must stay
+    # distinguishable from a deliberate ¥0 purchase (AGENTS.md: 没填≠0).
+    buyout_total: float | None = None
     by_model: list[ModelUsageSummary]
 
 

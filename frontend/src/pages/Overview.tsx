@@ -75,9 +75,15 @@ export default function Overview() {
           hint={o.estimated_cost === null ? "未计价" : "估算"}
         />
         <Kpi
-          value={formatCost(o.buyout_total)}
+          value={o.buyout_total === null ? "未填" : formatCost(o.buyout_total)}
           label="买断支出 (CNY)"
-          hint={o.buyout_total === 0 ? "未填" : "已付清"}
+          hint={
+            o.buyout_total === null
+              ? "价格表中没有买断行"
+              : o.buyout_total === 0
+                ? "免费套餐"
+                : "已付清"
+          }
         />
       </div>
 

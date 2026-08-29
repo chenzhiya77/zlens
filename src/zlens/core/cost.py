@@ -77,20 +77,20 @@ class PriceTable(BaseModel):
     def price_for(self, key: str) -> ModelPrice | None:
         return self.models.get(key)
 
-    def buyout_total(self) -> float:
+    def buyout_total(self) -> float | None:
         """Money already paid for buyout/plan rows, independent of any usage.
 
-        Nulls are skipped rather than read as zero: a row the user never filled
-        must not look like a deliberate free purchase.
+        None means the table has no buyout row at all: "never filled" and "paid
+        exactly zero" are different facts and must render differently. Filled rows
+        make the total a number even when that number is 0; unfilled (null) rows
+        are skipped rather than read as zero.
         """
-        return round(
-            sum(
-                price.buyout_amount
-                for price in self.models.values()
-                if price.buyout_amount is not None
-            ),
-            6,
-        )
+        amounts = [
+            price.buyout_amount for price in self.models.values() if price.buyout_amount is not None
+        ]
+        if not amounts:
+            return None
+        return round(sum(amounts), 6)
 
     def estimate_cost(
         self,

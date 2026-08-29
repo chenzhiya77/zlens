@@ -61,8 +61,12 @@ export interface Overview {
   cache_read_tokens: number;
   total_tokens: number;
   estimated_cost: number | null;
-  /** One-off buyout/plan spend from the price table; never summed with estimated_cost. */
-  buyout_total: number;
+  /**
+   * One-off buyout/plan spend from the price table; never summed with estimated_cost.
+   * null means the price table has no buyout row at all (未填); 0 is a real filled-in
+   * zero (免费套餐) and must stay distinguishable from null.
+   */
+  buyout_total: number | null;
   by_model: ModelUsageSummary[];
 }
 
