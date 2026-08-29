@@ -36,7 +36,9 @@ html[data-mode="light"] {
   --color-zinc-600: #a1a1aa;
   --color-zinc-700: #d4d4d8;
   --color-zinc-800: #e4e4e7;
-  --color-zinc-900: #f4f4f5;
+  /* 卡片是纯白(设计稿 2:61 表格卡片与各 KPI 卡 fills=#ffffff),比页面底
+     #fafafa 更亮一档——此前用 #f4f4f5 会让卡片比页面暗,层次整个反过来。 */
+  --color-zinc-900: #ffffff;
   --color-zinc-950: #fafafa;
   --color-amber-200: #b45309;
   --color-amber-500: #b45309;
