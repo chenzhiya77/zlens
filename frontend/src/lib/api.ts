@@ -29,6 +29,37 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Shared view state for the windowed endpoints (T24): empty/undefined values
+ * are omitted so "全部" is just "no params" — the backend's default is 全量. */
+/** Must mirror the backend's SortColumn Literal (sources/models.py). */
+export type SortColumn =
+  | "request_count"
+  | "input_tokens"
+  | "output_tokens"
+  | "cache_creation_tokens"
+  | "cache_read_tokens"
+  | "total_tokens"
+  | "estimated_cost";
+
+export interface ViewQuery {
+  source?: string;
+  start?: string;
+  end?: string;
+  sort?: string;
+  order?: string;
+  granularity?: string;
+}
+
+/** Build the query string for a view query; also used by the export link. */
+export function viewQueryString(q: ViewQuery): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(q)) {
+    if (value) params.set(key, value);
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
 export interface SourceRef {
   id: string;
   available: boolean;
@@ -117,8 +148,9 @@ export interface Overview {
   by_model: ModelUsageSummary[];
 }
 
-export const fetchMeta = () => getJson<MetaInfo>("/api/meta");
-export const fetchOverview = () => getJson<Overview>("/api/overview");
+export const fetchMeta = (q: ViewQuery = {}) => getJson<MetaInfo>(`/api/meta${viewQueryString(q)}`);
+export const fetchOverview = (q: ViewQuery = {}) =>
+  getJson<Overview>(`/api/overview${viewQueryString(q)}`);
 
 export interface DailyUsage {
   source: string;
@@ -155,7 +187,8 @@ export interface DailyTrends {
   by_model: DailyModelUsage[];
 }
 
-export const fetchTrends = () => getJson<DailyTrends>("/api/trends/daily");
+export const fetchTrends = (q: ViewQuery = {}) =>
+  getJson<DailyTrends>(`/api/trends/daily${viewQueryString(q)}`);
 
 export interface ProjectUsage {
   source: string;

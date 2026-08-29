@@ -13,9 +13,9 @@ cached prefix *inside* its input must subtract it in its adapter — leaving it
 nested charges those tokens twice, at the full input price.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
+from operator import attrgetter
 from typing import Literal
 
 from pydantic import BaseModel
@@ -68,8 +68,22 @@ class ModelUsageSummary(BaseModel):
     cache_hit_rate: float | None = None
 
 
-SortColumn = Literal["total_tokens", "estimated_cost", "request_count"]
+SortColumn = Literal[
+    "request_count",
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_tokens",
+    "cache_read_tokens",
+    "total_tokens",
+    "estimated_cost",
+]
 SortOrder = Literal["desc", "asc"]
+
+# Only estimated_cost carries the unpriced-last rule; every other sortable field
+# is an upstream-reported fact with no unknown values to sink.
+_TOKEN_FIELDS = frozenset(
+    {"input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens", "total_tokens"}
+)
 
 
 def sort_usage_rows(
@@ -87,10 +101,9 @@ def sort_usage_rows(
             reverse=reverse,
         )
         return priced + [r for r in rows if r.estimated_cost is None]
-    key: Callable[[ModelUsageSummary], object] = (
-        (lambda r: r.total_tokens) if sort == "total_tokens" else (lambda r: r.request_count)
-    )
-    return sorted(rows, key=key, reverse=reverse)
+    if sort in _TOKEN_FIELDS:
+        return sorted(rows, key=attrgetter(sort), reverse=reverse)
+    return sorted(rows, key=attrgetter("request_count"), reverse=reverse)
 
 
 class OverviewTotals(BaseModel):

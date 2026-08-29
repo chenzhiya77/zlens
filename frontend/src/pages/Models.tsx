@@ -11,7 +11,7 @@ import { useTheme } from "../lib/theme";
 import type { EChartsOption } from "echarts";
 
 export default function Models() {
-  const query = useQuery({ queryKey: ["overview"], queryFn: fetchOverview });
+  const query = useQuery({ queryKey: ["overview"], queryFn: () => fetchOverview() });
   const { mode } = useTheme();
   const colors = chartColors(mode);
 

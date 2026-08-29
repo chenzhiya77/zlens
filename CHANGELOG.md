@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 总览页交互接线(T24,阶段 B 收尾):周期选择器(近 7/30/90 天 + 全部 + 自定义区间,
+  前端把相对窗口翻译成绝对日期)与来源 chips(T18 的 `meta.sources`,不可用来源置灰并
+  带原因)切换时**所有卡片、趋势图、表格由后端按参数重算**;搜索框是唯一的客户端过滤
+  (只筛显示行);7 个数值列表头可点排序(默认成本降序,后端 T19 扩展到全 7 列,未计价
+  行恒排最后,表头带升降指示器);合计行读 `totals`,成本未计价显示「未计价」;导出按钮
+  直链 `/api/export` 下载带日期文件名的 Markdown;总览查询每小时自动刷新,页脚文案与
+  一致。`sort` / `order` / `source` / 窗口全部进 URL query,刷新/前进后退/分享链接还原
+  同一视图。Hero 右侧新增同窗口成本小图:定长窗口按日折线、「全部」按月柱状,未计价的
+  日子断口不补 0(`connectNulls: false`);环比红涨绿跌(成本涨=红),delta 为 null 处
+  一律不渲染;缓存命中率带「按 token 计」说明。
 - 表格合计行数据(T20):`/api/overview` 新增 `totals`(请求数 + 六个 token 档 + 成本),
   由后端按**窗口 + 来源过滤后的全量**计算,前端不再自己把 `by_model` 加一遍。诚实规则
   沿用:任一模型未计价 → `totals.estimated_cost` 为 null,token 各档照常求和。

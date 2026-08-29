@@ -115,9 +115,17 @@ def test_sort_by_request_count(client):
 
 
 def test_unknown_sort_or_order_is_422_with_allowed_values(client):
-    bad_sort = client.get("/api/overview", params={"sort": "cache_read_tokens"})
+    bad_sort = client.get("/api/overview", params={"sort": "model_id"})
     assert bad_sort.status_code == 422
     assert "total_tokens" in str(bad_sort.json())
+
+
+def test_token_columns_are_sortable(client):
+    """T24 needs all seven numeric headers clickable; backend sorts each."""
+    asc = client.get("/api/overview", params={"sort": "input_tokens", "order": "asc"}).json()
+    assert [m["input_tokens"] for m in asc["by_model"]] == sorted(
+        m["input_tokens"] for m in asc["by_model"]
+    )
 
     bad_order = client.get("/api/overview", params={"order": "up"})
     assert bad_order.status_code == 422

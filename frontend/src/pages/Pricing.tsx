@@ -32,11 +32,11 @@ const EMPTY_PRICE: ModelPrice = {
 export default function Pricing() {
   const queryClient = useQueryClient();
   const tableQuery = useQuery({ queryKey: ["pricing"], queryFn: fetchPricing });
-  const metaQuery = useQuery({ queryKey: ["meta"], queryFn: fetchMeta });
+  const metaQuery = useQuery({ queryKey: ["meta"], queryFn: () => fetchMeta() });
   // 「现总价」is derived, never stored: it is the same per-channel cost the overview
   // shows, read from the same endpoint, so editing a price here and the overview's
   // figure can never disagree.
-  const usageQuery = useQuery({ queryKey: ["overview"], queryFn: fetchOverview });
+  const usageQuery = useQuery({ queryKey: ["overview"], queryFn: () => fetchOverview() });
   const [aliases] = useState(() => getAliases());
 
   const [rows, setRows] = useState<Record<string, ModelPrice>>({});

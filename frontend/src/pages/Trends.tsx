@@ -50,7 +50,7 @@ interface Triple {
 const seriesKey = (r: Triple) => `${r.source}/${r.provider_id}/${r.model_id}`;
 
 export default function Trends() {
-  const query = useQuery({ queryKey: ["trends"], queryFn: fetchTrends });
+  const query = useQuery({ queryKey: ["trends"], queryFn: () => fetchTrends() });
   const [range, setRange] = useState<RangeKey>("30d");
   const [metric, setMetric] = useState<MetricKey>("total_tokens");
   const [heatMode, setHeatMode] = useState<HeatMode>("daily");
