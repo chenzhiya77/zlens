@@ -309,7 +309,12 @@ export default function Overview() {
               <span>{`${o.cache_read_tokens.toLocaleString("zh-CN")} tokens`}</span>
             ) : (
               <span>
-                {`${o.cache_read_tokens.toLocaleString("zh-CN")} tokens · 缓存命中率 ${(hitRate * 100).toFixed(1)}%(按 token 计)`}
+                {`${o.cache_read_tokens.toLocaleString("zh-CN")} tokens · `}
+                {/* 设计稿 2:37「KPI3 命中率」=#10b981(emerald-500)的绿色强调,
+                    提示这是"好事发生中";未计价/无数据时整行保持灰色。 */}
+                <span className="font-medium text-emerald-500">
+                  {`缓存命中率 ${(hitRate * 100).toFixed(1)}%(按 token 计)`}
+                </span>
               </span>
             )
           }
