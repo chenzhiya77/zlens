@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 表格合计行数据(T20):`/api/overview` 新增 `totals`(请求数 + 六个 token 档 + 成本),
+  由后端按**窗口 + 来源过滤后的全量**计算,前端不再自己把 `by_model` 加一遍。诚实规则
+  沿用:任一模型未计价 → `totals.estimated_cost` 为 null,token 各档照常求和。
+  「全部合计 · 共 N 个模型」的渲染在 T24(修正设计稿「本页合计 · 前 5 个模型」的自相矛盾,
+  不做分页)。
+- Markdown 导出(T22):新增 `GET /api/export`,固定输出按模型明细的 Markdown 表格
+  (不做 csv、不留 `format` 参数),`start` / `end` / `source` / `sort` / `order` 全部生效,
+  响应头带 `Content-Disposition` 文件名(如 `zlens-models-2026-08-29.md`)。三条硬规矩:
+  token 列只导**原始整数**(「5.49 亿」没法二次计算)、成本列不带货币符号、null 写
+  **「未计价」**绝不写 0;文件头自带口径说明(四档互斥、成本为估算、未计价含义、生成时间、
+  别名不包含)——这份数据离开应用后就没有上下文了。前端下载按钮在 T24。
 - 总览环比(T16):`/api/overview` 新增 `delta`,对**等长前移**的上期窗口(选 30 天就比
   紧挨着的前 30 天,不做自然月对齐——天数不同比总量会得出相反结论)给出 `request_count`
   与 `estimated_cost` 的 `previous` 与 `change_rate`。三条诚实护栏:上期窗口不完整(起点早于

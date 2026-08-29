@@ -77,6 +77,19 @@ export interface PeriodDelta {
   estimated_cost: MetricDelta;
 }
 
+export interface OverviewTotals {
+  /** Backend-computed grand totals (full window+source set, no pagination). */
+  request_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
+  total_tokens: number;
+  /** null while any served model is unpriced — never re-sum in the client. */
+  estimated_cost: number | null;
+}
+
 export interface Overview {
   request_count: number;
   input_tokens: number;
@@ -100,6 +113,7 @@ export interface Overview {
    * placeholder when null — no "—%", no 0%.
    */
   delta: PeriodDelta | null;
+  totals: OverviewTotals | null;
   by_model: ModelUsageSummary[];
 }
 

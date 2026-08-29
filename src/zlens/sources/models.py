@@ -93,6 +93,27 @@ def sort_usage_rows(
     return sorted(rows, key=key, reverse=reverse)
 
 
+class OverviewTotals(BaseModel):
+    """Window+source-filtered grand totals for the table footer row (T20).
+
+    Backend-computed, never re-summed in the client: the unpriced rule is a
+    business decision, not arithmetic. Token buckets are upstream facts and sum
+    unconditionally; the cost total stays null while any served model is unpriced
+    (a partial total would silently understate spend). No pagination exists, and
+    this is the FULL total by construction — name and shape stay "totals", not
+    "page totals", so a future pager cannot bury a semantic trap here.
+    """
+
+    request_count: int
+    input_tokens: int
+    output_tokens: int
+    reasoning_tokens: int
+    cache_creation_tokens: int
+    cache_read_tokens: int
+    total_tokens: int
+    estimated_cost: float | None = None
+
+
 class MetricDelta(BaseModel):
     """One metric's period-over-period figure.
 
@@ -134,6 +155,7 @@ class Overview(BaseModel):
     # given AND the previous window is fully inside the data range AND non-empty —
     # a missing previous period must vanish, not render as "+300%".
     delta: PeriodDelta | None = None
+    totals: OverviewTotals | None = None
     by_model: list[ModelUsageSummary]
 
 

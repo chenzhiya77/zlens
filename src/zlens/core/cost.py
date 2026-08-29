@@ -28,6 +28,7 @@ from zlens.sources.models import (
     DailyUsage,
     MetricDelta,
     Overview,
+    OverviewTotals,
     ProjectModelUsage,
     ProjectsReport,
     ProjectUsage,
@@ -164,6 +165,16 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     ]
     fully_priced = bool(by_model) and all(m.estimated_cost is not None for m in by_model)
     total = round(sum(m.estimated_cost for m in by_model), 6) if fully_priced else None
+    totals = OverviewTotals(
+        request_count=overview.request_count,
+        input_tokens=overview.input_tokens,
+        output_tokens=overview.output_tokens,
+        reasoning_tokens=overview.reasoning_tokens,
+        cache_creation_tokens=overview.cache_creation_tokens,
+        cache_read_tokens=overview.cache_read_tokens,
+        total_tokens=overview.total_tokens,
+        estimated_cost=total,
+    )
     return overview.model_copy(
         update={
             "by_model": by_model,
@@ -172,6 +183,7 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
             "cache_hit_rate": _cache_hit_rate(
                 overview.cache_read_tokens, overview.cache_creation_tokens, overview.input_tokens
             ),
+            "totals": totals,
         },
     )
 
