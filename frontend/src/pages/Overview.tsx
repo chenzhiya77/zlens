@@ -53,18 +53,36 @@ function resolveWindow(preset: WindowPreset, start?: string, end?: string): View
   return { start: localDate(first), end: localDate(today) };
 }
 
-/** 环比徽章:红涨绿跌。delta 或 change_rate 为 null 时不渲染——没有 "—%" 或 0%。 */
-function DeltaBadge({ rate, upIsGood }: { rate: number | null | undefined; upIsGood: boolean }) {
+/** 环比徽章:红涨绿跌。delta 或 change_rate 为 null 时不渲染——没有 "—%" 或 0%。
+ * 两种措辞(设计稿 2:17/2:31):Hero 带「上行/下行」方向词,辅指标卡用 +/- 号;
+ * 红两处都是设计稿原值(hero #ef4444=red-500,requests #10b981=emerald-500)。 */
+function DeltaBadge({
+  rate,
+  upIsGood,
+  showDirection = false,
+}: {
+  rate: number | null | undefined;
+  upIsGood: boolean;
+  showDirection?: boolean;
+}) {
   if (rate === null || rate === undefined) return null;
-  const pct = `${rate > 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`;
   if (rate === 0) {
     return <span className="whitespace-nowrap text-xs text-zinc-500">较上期 ±0.0%</span>;
   }
   const good = rate > 0 === upIsGood;
+  const color = good ? "text-emerald-500" : "text-red-500";
+  if (showDirection) {
+    const pct = `${Math.abs(rate * 100).toFixed(1)}%`;
+    const word = rate > 0 ? "上行" : "下行";
+    return (
+      <span className={`whitespace-nowrap text-xs font-medium ${color}`}>
+        较上期 {pct} {word}
+      </span>
+    );
+  }
+  const pct = `${rate > 0 ? "+" : ""}${(rate * 100).toFixed(1)}%`;
   return (
-    <span className={`whitespace-nowrap text-xs ${good ? "text-emerald-500" : "text-red-500"}`}>
-      较上期 {pct}
-    </span>
+    <span className={`whitespace-nowrap text-xs ${color}`}>较上期 {pct}</span>
   );
 }
 
@@ -251,9 +269,11 @@ export default function Overview() {
             {formatCost(o.estimated_cost)}
           </p>
           <div className="mt-2">
-            <DeltaBadge rate={costDelta} upIsGood={false} />
+            <DeltaBadge rate={costDelta} upIsGood={false} showDirection />
           </div>
-          <p className="mt-3 text-xs text-zinc-500">
+          {/* 设计稿 2:18:口径说明比正文淡一档(#a1a1aa = 翻转后的 zinc-600),
+              不与 header 说明行(zinc-500)同级。措辞含「缓存写」是 D4 纠正,别抄回画布旧文案。 */}
+          <p className="mt-3 text-xs text-zinc-600">
             估算口径:输入 + 输出 + 缓存写 + 缓存读 四档分别乘价求和,不包含已结清金额
           </p>
         </div>
