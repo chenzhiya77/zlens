@@ -103,7 +103,7 @@ export default function ModelTable({
         <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-950 text-left text-xs text-zinc-500">
-              <th className="py-2 pr-4 font-medium">来源</th>
+              <th className="py-2 pl-4 pr-4 font-medium">来源</th>
               <th className="py-2 pr-4 font-medium">模型</th>
               {onAlias && <th className="py-2 pr-4 font-medium">别名</th>}
               {SORTABLE_COLUMNS.map((col) => (
@@ -123,7 +123,7 @@ export default function ModelTable({
               const key = aliasKey(row.source, row.provider_id, row.model_id);
               return (
                 <tr key={key} className="border-b border-zinc-800/60">
-                  <td className="py-2 pr-4">
+                  <td className="py-2 pl-4 pr-4">
                     <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
                       {row.source}
                     </span>
@@ -167,7 +167,7 @@ export default function ModelTable({
                   <td className="py-2 pr-4 text-right tabular-nums font-medium">
                     {formatTokens(row.total_tokens)}
                   </td>
-                  <td className="py-2 text-right tabular-nums">
+                  <td className="py-2 pr-4 text-right tabular-nums">
                     <CostText cost={row.estimated_cost} />
                   </td>
                 </tr>
@@ -177,7 +177,7 @@ export default function ModelTable({
           {totals && (
             <tfoot>
               <tr className="border-t border-zinc-700 bg-zinc-800/40 text-sm">
-                <td colSpan={labelSpan} className="py-2 pr-4 text-xs text-zinc-500">
+                <td colSpan={labelSpan} className="py-2 pl-4 pr-4 text-xs text-zinc-500">
                   全部合计 · 共 {modelCount ?? models.length} 个模型
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">
@@ -202,7 +202,7 @@ export default function ModelTable({
                 <td className="py-2 pr-4 text-right tabular-nums font-medium">
                   {formatTokens(totals.total_tokens)}
                 </td>
-                <td className="py-2 text-right tabular-nums">
+                <td className="py-2 pr-4 text-right tabular-nums">
                   <CostText cost={totals.estimated_cost} />
                 </td>
               </tr>
