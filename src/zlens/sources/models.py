@@ -81,11 +81,26 @@ class Overview(BaseModel):
     by_model: list[ModelUsageSummary]
 
 
+class SourceRef(BaseModel):
+    """One registered source in the UI enumeration — including the broken ones.
+
+    A dead source must stay visible (greyed out with its reason), not vanish:
+    a missing entry reads as "never had any usage", which is a lie.
+    """
+
+    id: str
+    available: bool
+    error: str | None = None
+
+
 class MetaInfo(BaseModel):
     source_id: str
     # Package version (zlens.__version__) so the SPA footer never hardcodes one.
     # Not source data: adapters leave it empty; the API layer stamps the real value.
     version: str = ""
+    # All registered sources with their availability, stamped by the API layer the
+    # same way (adapters cannot see the registry). Empty from adapters.
+    sources: list[SourceRef] = []
     request_count: int
     first_request_at: datetime | None
     last_request_at: datetime | None

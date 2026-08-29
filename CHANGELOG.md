@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 来源枚举(T18):`/api/meta` 新增 `sources` 数组(`{id, available, error}`),列出**全部已注册**
+  来源——不可用的也在(置灰并携带原因),而不是一挂就从界面消失让人以为从没用过;
+  `source_id` 字段原样保留,与 `?source=`、日期窗口参数组合生效。前端来源 chips 的 UI 在 T24。
 - 日期窗口参数下推(T15):`/api/overview`、`/api/trends/daily`、`/api/models`、`/api/meta`
   新增 `start` / `end` 绝对日期参数(ISO `YYYY-MM-DD`,**闭区间**,按本地日切),缺省 = 全量、
   行为与之前完全一致;`start > end` 返回 422。窗口在**三个适配器内部下推**(zcode 用

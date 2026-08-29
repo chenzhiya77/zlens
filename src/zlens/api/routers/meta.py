@@ -20,6 +20,12 @@ def get_meta(
     selected = store.select(source)
     table = PriceTable.load(settings.pricing_path)
     unpriced = sorted(set(selected.model_keys(window)) - set(table.models))
+    # The enumeration always carries the full registry (even when ?source= picks
+    # one): a chip that vanishes because its source died reads as "never existed".
     return selected.meta(window).model_copy(
-        update={"unpriced_models": unpriced, "version": __version__}
+        update={
+            "unpriced_models": unpriced,
+            "version": __version__,
+            "sources": store.source_refs(),
+        }
     )

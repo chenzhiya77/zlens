@@ -29,10 +29,19 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export interface SourceRef {
+  id: string;
+  available: boolean;
+  /** Why the source is unavailable (path missing, schema drift); null when fine. */
+  error: string | null;
+}
+
 export interface MetaInfo {
   source_id: string;
   /** Package version (zlens.__version__) for the footer; comes from the backend. */
   version: string;
+  /** Every registered source, including unavailable ones (grey out, don't erase). */
+  sources: SourceRef[];
   request_count: number;
   first_request_at: string | null;
   last_request_at: string | null;

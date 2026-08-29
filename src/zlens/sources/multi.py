@@ -17,19 +17,21 @@ from zlens.sources.models import (
     ModelsRanking,
     Overview,
     ProjectModelUsage,
+    SourceRef,
 )
 
 
 class MultiSource:
     def __init__(self, adapters: list[SourceAdapter]) -> None:
+        self._registered: list[SourceAdapter] = list(adapters)
         self._active: list[SourceAdapter] = []
-        self._errors: list[SourceError] = []
+        self._probe_errors: dict[str, SourceError] = {}
         for adapter in adapters:
             try:
                 if adapter.is_available():
                     self._active.append(adapter)
             except SourceError as exc:
-                self._errors.append(exc)
+                self._probe_errors[adapter.id] = exc
 
     @property
     def source_ids(self) -> list[str]:
@@ -43,18 +45,39 @@ class MultiSource:
         if not matches:
             raise SourceUnavailable(f"unknown or unavailable source: {source_id}")
         selected = object.__new__(MultiSource)
+        selected._registered = self._registered
         selected._active = matches
-        selected._errors = []
+        selected._probe_errors = self._probe_errors
         return selected
+
+    def source_refs(self) -> list[SourceRef]:
+        """Every registered source with its availability — the UI enumeration.
+
+        Registered, not merely active: a source that failed its probe keeps its
+        slot (with the reason) so the UI can grey it out instead of erasing it.
+        """
+        refs = []
+        for adapter in self._registered:
+            error = self._probe_errors.get(adapter.id)
+            refs.append(
+                SourceRef(
+                    id=adapter.id,
+                    available=error is None and any(a is adapter for a in self._active),
+                    error=str(error) if error else None,
+                )
+            )
+        return refs
 
     def _active_or_raise(self) -> list[SourceAdapter]:
         if self._active:
             return self._active
-        schema_errors = [e for e in self._errors if isinstance(e, SchemaIncompatible)]
+        schema_errors = [
+            e for e in self._probe_errors.values() if isinstance(e, SchemaIncompatible)
+        ]
         if schema_errors:
             raise schema_errors[0]
-        if self._errors:
-            raise self._errors[0]
+        if self._probe_errors:
+            raise next(iter(self._probe_errors.values()))
         raise SourceUnavailable("no data source configured")
 
     def is_available(self) -> bool:
