@@ -305,16 +305,11 @@ export default function Overview() {
           label="缓存读 Token"
           value={formatTokens(o.cache_read_tokens)}
           sub={
-            hitRate === null || hitRate === undefined ? (
-              <span>{`${o.cache_read_tokens.toLocaleString("zh-CN")} tokens`}</span>
-            ) : (
-              <span>
-                {`${o.cache_read_tokens.toLocaleString("zh-CN")} tokens · `}
-                {/* 设计稿 2:37「KPI3 命中率」=#10b981(emerald-500)的绿色强调,
-                    提示这是"好事发生中";未计价/无数据时整行保持灰色。 */}
-                <span className="font-medium text-emerald-500">
-                  {`缓存命中率 ${(hitRate * 100).toFixed(1)}%(按 token 计)`}
-                </span>
+            /* 辅助行只放命中率(设计稿 2:37=#10b981 绿色):带原始 token 数会
+               超出卡片宽度;大数已由卡面 value 呈现,不重复。 */
+            hitRate === null || hitRate === undefined ? null : (
+              <span className="font-medium text-emerald-500">
+                {`缓存命中率 ${(hitRate * 100).toFixed(1)}%(按 token 计)`}
               </span>
             )
           }
