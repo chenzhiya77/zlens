@@ -13,8 +13,10 @@ cached prefix *inside* its input must subtract it in its adapter — leaving it
 nested charges those tokens twice, at the full input price.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -61,6 +63,31 @@ class ModelUsageSummary(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+
+
+SortColumn = Literal["total_tokens", "estimated_cost", "request_count"]
+SortOrder = Literal["desc", "asc"]
+
+
+def sort_usage_rows(
+    rows: list["ModelUsageSummary"], sort: SortColumn, order: SortOrder
+) -> list["ModelUsageSummary"]:
+    """Backend-side table sort (T19): the unpriced-last rule lives here, server
+    side, so no client re-sort can ever mix "unknown cost" into the middle of a
+    cost ranking where it would read as "cheap" instead of "unpriced".
+    """
+    reverse = order == "desc"
+    if sort == "estimated_cost":
+        priced = sorted(
+            (r for r in rows if r.estimated_cost is not None),
+            key=lambda r: r.estimated_cost,
+            reverse=reverse,
+        )
+        return priced + [r for r in rows if r.estimated_cost is None]
+    key: Callable[[ModelUsageSummary], object] = (
+        (lambda r: r.total_tokens) if sort == "total_tokens" else (lambda r: r.request_count)
+    )
+    return sorted(rows, key=key, reverse=reverse)
 
 
 class Overview(BaseModel):

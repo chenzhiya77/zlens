@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 表格排序参数(T19):`/api/overview` 与 `/api/models` 新增 `sort`
+  (`total_tokens`|`estimated_cost`|`request_count`,缺省 `total_tokens` 保持既有顺序)与
+  `order`(缺省 `desc`),非法值 422 并列出可选列。**未计价行恒排最后,与升降序无关**——
+  「不知道」不能排在中间读成「便宜」,这条规则在后端 `sort_usage_rows` 里执行,前端只传参。
+  表头点击与 URL 持久化的 UI 在 T24(届时总览默认 `sort=estimated_cost&order=desc`,
+  对齐设计稿副标题「按成本降序」)。
 - 来源枚举(T18):`/api/meta` 新增 `sources` 数组(`{id, available, error}`),列出**全部已注册**
   来源——不可用的也在(置灰并携带原因),而不是一挂就从界面消失让人以为从没用过;
   `source_id` 字段原样保留,与 `?source=`、日期窗口参数组合生效。前端来源 chips 的 UI 在 T24。

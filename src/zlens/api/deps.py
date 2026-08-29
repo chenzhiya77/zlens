@@ -5,7 +5,7 @@ from datetime import date
 from fastapi import HTTPException, Query, Request
 
 from zlens.core.config import Settings
-from zlens.sources.models import DateWindow
+from zlens.sources.models import DateWindow, SortColumn, SortOrder
 from zlens.sources.multi import MultiSource
 
 
@@ -15,6 +15,19 @@ def get_source(request: Request) -> MultiSource:
 
 def get_settings(request: Request) -> Settings:
     return request.app.state.settings
+
+
+def get_sort(
+    sort: SortColumn = Query(default="total_tokens"),
+    order: SortOrder = Query(default="desc"),
+) -> tuple[SortColumn, SortOrder]:
+    """Table sort for the windowed ranking endpoints.
+
+    Defaults preserve today's ordering (total_tokens desc); the unpriced-last
+    rule is applied server-side in sort_usage_rows. Literal typing makes FastAPI
+    reject unknown columns/orders with a 422 naming the allowed values.
+    """
+    return sort, order
 
 
 def get_window(
