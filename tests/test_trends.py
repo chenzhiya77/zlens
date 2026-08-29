@@ -101,5 +101,8 @@ def test_models_ranking_matches_overview_order(client_factory, tmp_path):
 def test_empty_database_yields_empty_trends_and_ranking(client_factory):
     client = client_factory([])
 
-    assert client.get("/api/trends/daily").json() == {"days": [], "by_model": []}
+    trends = client.get("/api/trends/daily").json()
+    assert trends["granularity"] == "day"  # T17 echo field
+    assert trends["days"] == []
+    assert trends["by_model"] == []
     assert client.get("/api/models").json() == {"models": []}
