@@ -57,6 +57,21 @@ function SortableTh({
   );
 }
 
+/** 成本列的三种表情(设计稿数据行/合计行):未计价是不知道(徽章),0 是事实但
+ * 不值得强调(变暗 zinc-600,light 翻转后 #a1a1aa 与画布一致),真金白银才上
+ * 设计稿的红 #f04545。 */
+function CostText({ cost }: { cost: number | null }) {
+  if (cost === null) {
+    return (
+      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">未计价</span>
+    );
+  }
+  if (cost === 0) {
+    return <span className="text-zinc-600">{formatCost(cost)}</span>;
+  }
+  return <span className="font-medium text-[#f04545]">{formatCost(cost)}</span>;
+}
+
 export default function ModelTable({
   models,
   aliases = {},
@@ -89,7 +104,7 @@ export default function ModelTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
-            <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+            <tr className="border-b border-zinc-800 bg-zinc-950 text-left text-xs text-zinc-500">
               <th className="py-2 pr-4 font-medium">来源</th>
               <th className="py-2 pr-4 font-medium">模型</th>
               {onAlias && <th className="py-2 pr-4 font-medium">别名</th>}
@@ -141,7 +156,11 @@ export default function ModelTable({
                   <td className="py-2 pr-4 text-right tabular-nums">
                     {formatTokens(row.output_tokens)}
                   </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
+                  <td
+                    className={`py-2 pr-4 text-right tabular-nums ${
+                      row.cache_creation_tokens === 0 ? "text-zinc-600" : ""
+                    }`}
+                  >
                     {formatTokens(row.cache_creation_tokens)}
                   </td>
                   <td className="py-2 pr-4 text-right tabular-nums">
@@ -151,13 +170,7 @@ export default function ModelTable({
                     {formatTokens(row.total_tokens)}
                   </td>
                   <td className="py-2 text-right tabular-nums">
-                    {row.estimated_cost === null ? (
-                      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">
-                        未计价
-                      </span>
-                    ) : (
-                      formatCost(row.estimated_cost)
-                    )}
+                    <CostText cost={row.estimated_cost} />
                   </td>
                 </tr>
               );
@@ -165,7 +178,7 @@ export default function ModelTable({
           </tbody>
           {totals && (
             <tfoot>
-              <tr className="border-t border-zinc-800 text-sm">
+              <tr className="border-t border-zinc-700 bg-zinc-900 text-sm">
                 <td colSpan={labelSpan} className="py-2 pr-4 text-xs text-zinc-500">
                   全部合计 · 共 {modelCount ?? models.length} 个模型
                 </td>
@@ -178,7 +191,11 @@ export default function ModelTable({
                 <td className="py-2 pr-4 text-right tabular-nums">
                   {formatTokens(totals.output_tokens)}
                 </td>
-                <td className="py-2 pr-4 text-right tabular-nums">
+                <td
+                  className={`py-2 pr-4 text-right tabular-nums ${
+                    totals.cache_creation_tokens === 0 ? "text-zinc-600" : ""
+                  }`}
+                >
                   {formatTokens(totals.cache_creation_tokens)}
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">
@@ -188,13 +205,7 @@ export default function ModelTable({
                   {formatTokens(totals.total_tokens)}
                 </td>
                 <td className="py-2 text-right tabular-nums">
-                  {totals.estimated_cost === null ? (
-                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">
-                      未计价
-                    </span>
-                  ) : (
-                    formatCost(totals.estimated_cost)
-                  )}
+                  <CostText cost={totals.estimated_cost} />
                 </td>
               </tr>
             </tfoot>
