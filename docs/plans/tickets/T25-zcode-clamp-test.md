@@ -1,7 +1,7 @@
 # T25 — zcode 逐行 clamp 测试补全
 
 **Blocked by:** None — 可独立开工
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

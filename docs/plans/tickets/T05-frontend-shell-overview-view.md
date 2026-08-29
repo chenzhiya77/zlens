@@ -1,7 +1,7 @@
 # T05 — 前端壳 + 总览视图页
 
 **Blocked by:** T02 — 价格表与成本估算接入总览
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

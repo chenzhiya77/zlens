@@ -1,7 +1,7 @@
 # T04 — 按项目 + 性能 + 健康度端点
 
 **Blocked by:** T01 — 最小数据通路:meta + 总览(token 口径)
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

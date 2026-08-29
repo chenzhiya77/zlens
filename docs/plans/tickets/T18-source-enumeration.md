@@ -1,7 +1,7 @@
 # T18 — 来源枚举
 
 **Blocked by:** None — 可独立开工
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

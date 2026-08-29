@@ -1,7 +1,7 @@
 # T06 — 日趋势图 + 模型排行视图
 
 **Blocked by:** T03 — 日趋势 + 按模型端点; T05 — 前端壳 + 总览视图页
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

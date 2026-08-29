@@ -1,7 +1,7 @@
 # T12 — 价格表管理页 + 单位标注
 
 **Blocked by:** None — can start immediately（v1/v2 数据展示已稳定）
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

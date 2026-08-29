@@ -1,7 +1,7 @@
 # T10 — opencode 适配器
 
 **Blocked by:** T09 — MiniMax 适配器 + 多来源组合层
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

@@ -1,7 +1,7 @@
 # T09 — MiniMax 适配器 + 多来源组合层
 
 **Blocked by:** None — can start immediately(v2 首票)
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

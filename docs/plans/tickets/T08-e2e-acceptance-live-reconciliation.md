@@ -1,7 +1,7 @@
 # T08 — 端到端验收与真实库对账
 
 **Blocked by:** T06 — 日趋势图 + 模型排行视图; T07 — 项目分布 / 性能分位数 / 健康度三视图
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

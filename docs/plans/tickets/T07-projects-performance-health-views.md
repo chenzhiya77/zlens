@@ -1,7 +1,7 @@
 # T07 — 项目分布 / 性能分位数 / 健康度三视图
 
 **Blocked by:** T04 — 按项目 + 性能 + 健康度端点; T05 — 前端壳 + 总览视图页
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

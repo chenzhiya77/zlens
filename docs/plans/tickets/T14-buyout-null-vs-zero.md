@@ -1,7 +1,7 @@
 # T14 — 买断支出 null / 0 可区分
 
 **Blocked by:** None — 可立即开工
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

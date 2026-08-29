@@ -1,7 +1,7 @@
 # T16 — 环比 delta 与上期完整性判定
 
 **Blocked by:** T15 — 日期窗口参数
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

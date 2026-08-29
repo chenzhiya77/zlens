@@ -1,7 +1,7 @@
 # T23 — 总览页视觉改版(阶段 A)
 
 **Blocked by:** None — 零后端依赖,可与后端所有票并行
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

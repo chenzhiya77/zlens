@@ -1,7 +1,7 @@
 # T11 — 前端来源维度 + v2 端到端验收
 
 **Blocked by:** T10 — opencode 适配器
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

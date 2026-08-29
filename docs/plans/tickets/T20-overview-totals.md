@@ -1,7 +1,7 @@
 # T20 — 合计行 totals
 
 **Blocked by:** T15 — 日期窗口参数
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

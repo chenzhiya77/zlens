@@ -1,7 +1,7 @@
 # T15 — 日期窗口参数下推
 
 **Blocked by:** None — 但建议 T14 之后做
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

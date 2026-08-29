@@ -1,7 +1,7 @@
 # T13 — 设置页（VLM 配置）+ 截图粘贴识别价格
 
 **Blocked by:** T12 — 价格表管理页 + 单位标注（识别结果是预填价格表单，表单先行）
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 

@@ -1,7 +1,7 @@
 # T24 — 总览页交互接线(阶段 B)
 
 **Blocked by:** T18 — 来源枚举;T19 — 表格排序;T20 — 合计行
-**Status:** ready-for-agent
+**Status:** done (2026-08-29)
 
 ## User story
 
