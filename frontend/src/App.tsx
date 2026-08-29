@@ -9,9 +9,10 @@ import Settings from "./pages/Settings";
 import Usage from "./pages/Usage";
 
 // Sidebar grouped by purpose: analysis views vs configuration. "用量分析"
-// hosts its three cuts as in-page tabs (see pages/Usage.tsx).
-const NAV: { path: string; label: string; group: string | null }[] = [
-  { path: "/", label: "总览", group: null },
+// hosts its three cuts as in-page tabs (see pages/Usage.tsx). `ownTitle` marks
+// pages that render their own content header (T23 design) instead of the shell h1.
+const NAV: { path: string; label: string; group: string | null; ownTitle?: boolean }[] = [
+  { path: "/", label: "总览", group: null, ownTitle: true },
   { path: "/usage", label: "用量分析", group: "分析" },
   { path: "/runtime", label: "运行质量", group: "分析" },
   { path: "/pricing", label: "价格表", group: "配置" },
@@ -24,7 +25,8 @@ function isActive(pathname: string, path: string): boolean {
 
 function Layout() {
   const { pathname } = useLocation();
-  const current = NAV.find((v) => isActive(pathname, v.path))?.label ?? "zlens";
+  const nav = NAV.find((v) => isActive(pathname, v.path));
+  const current = nav?.label ?? "zlens";
 
   return (
     <div className="flex min-h-screen">
@@ -64,7 +66,7 @@ function Layout() {
         </p>
       </nav>
       <main className="min-w-0 flex-1 px-10 py-8">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight">{current}</h1>
+        {!nav?.ownTitle && <h1 className="mb-6 text-2xl font-semibold tracking-tight">{current}</h1>}
         <Outlet />
       </main>
     </div>

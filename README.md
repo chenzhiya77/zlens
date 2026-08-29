@@ -4,7 +4,8 @@ Local-first 的 AI Coding Agent token 用量与成本分析工具。v2 支持多
 ZCode(`~/.zcode/cli/db/db.sqlite`)、MiniMax Code(`~/.minimax/v2/sessions`)、
 opencode(`~/.local/share/opencode/opencode.db`),列表后续可扩展。
 
-打开即查:总览(KPI + 模型明细,可为同名模型起别名区分)、用量分析(日趋势 /
+打开即查:总览(Hero「按量消耗」大数字 + 5 张 KPI 卡 + 模型明细,可为同名模型起别名
+区分)、用量分析(日趋势 /
 按模型 / 按项目三个维度)、运行质量(耗时分位数 + 重试与错误)。多来源合并展示,
 每行可追溯到来源;全程只读,不影响正在进行的对话。
 

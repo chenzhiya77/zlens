@@ -31,6 +31,8 @@ async function getJson<T>(path: string): Promise<T> {
 
 export interface MetaInfo {
   source_id: string;
+  /** Package version (zlens.__version__) for the footer; comes from the backend. */
+  version: string;
   request_count: number;
   first_request_at: string | null;
   last_request_at: string | null;

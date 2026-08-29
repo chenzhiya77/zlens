@@ -61,6 +61,9 @@ class Overview(BaseModel):
 
 class MetaInfo(BaseModel):
     source_id: str
+    # Package version (zlens.__version__) so the SPA footer never hardcodes one.
+    # Not source data: adapters leave it empty; the API layer stamps the real value.
+    version: str = ""
     request_count: int
     first_request_at: datetime | None
     last_request_at: datetime | None

@@ -34,6 +34,16 @@ def test_meta_on_empty_database(client_factory):
     assert body["last_request_at"] is None
 
 
+def test_meta_carries_package_version(client_factory):
+    """T23 D7: the footer version comes from zlens.__version__, never hardcoded
+    in the SPA — so /api/meta must stamp the real package version."""
+    import zlens
+
+    body = client_factory([]).get("/api/meta").json()
+
+    assert body["version"] == zlens.__version__
+
+
 def test_missing_database_reports_source_unavailable(tmp_path):
     settings = Settings(
         db_path=tmp_path / "absent.sqlite",

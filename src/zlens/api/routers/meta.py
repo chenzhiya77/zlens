@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from zlens import __version__
 from zlens.api.deps import get_settings, get_source
 from zlens.core.config import Settings
 from zlens.core.cost import PriceTable
@@ -18,4 +19,4 @@ def get_meta(
     selected = store.select(source)
     table = PriceTable.load(settings.pricing_path)
     unpriced = sorted(set(selected.model_keys()) - set(table.models))
-    return selected.meta().model_copy(update={"unpriced_models": unpriced})
+    return selected.meta().model_copy(update={"unpriced_models": unpriced, "version": __version__})
