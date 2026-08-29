@@ -27,9 +27,10 @@ import type { EChartsOption } from "echarts";
 
 const HOUR_MS = 3_600_000;
 
-type WindowPreset = "7" | "30" | "90" | "all" | "custom";
+type WindowPreset = "today" | "7" | "30" | "90" | "all" | "custom";
 
 const WINDOW_OPTIONS: { key: WindowPreset; label: string }[] = [
+  { key: "today", label: "当天" },
   { key: "7", label: "近 7 天" },
   { key: "30", label: "近 30 天" },
   { key: "90", label: "近 90 天" },
@@ -42,12 +43,16 @@ function localDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** 后端只认绝对日期;「近 N 天」的锚点是今天,由前端翻译(T15 的分工)。 */
+/** 后端只认绝对日期;「当天/近 N 天」的锚点是今天,由前端翻译(T15 的分工)。 */
 function resolveWindow(preset: WindowPreset, start?: string, end?: string): ViewQuery {
   if (preset === "all") return {};
   if (preset === "custom") return { start: start || undefined, end: end || undefined };
-  const days = Number(preset);
   const today = new Date();
+  if (preset === "today") {
+    const t = localDate(today);
+    return { start: t, end: t };
+  }
+  const days = Number(preset);
   const first = new Date(today);
   first.setDate(today.getDate() - (days - 1));
   return { start: localDate(first), end: localDate(today) };
