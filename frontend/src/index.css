@@ -19,6 +19,8 @@ body {
   --color-zinc-950: #0f1215;
   --color-zinc-900: #16191d;
   --color-zinc-800: #262b31;
+  /* Hero 趋势图面板(设计稿 2:14):light=#f4f4f5 灰面板;dark 比卡片略亮一档。 */
+  --color-chart-panel: #1d2127;
 }
 
 /* --- Theme: appearance mode -------------------------------------------------
@@ -40,6 +42,7 @@ html[data-mode="light"] {
      #fafafa 更亮一档——此前用 #f4f4f5 会让卡片比页面暗,层次整个反过来。 */
   --color-zinc-900: #ffffff;
   --color-zinc-950: #fafafa;
+  --color-chart-panel: #f4f4f5;
   --color-amber-200: #b45309;
   --color-amber-500: #b45309;
   --color-amber-800: #d97706;

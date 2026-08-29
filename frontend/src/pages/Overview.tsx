@@ -186,7 +186,22 @@ export default function Overview() {
           barMaxWidth: 22,
           itemStyle: { color: "#3b82f6" },
           lineStyle: { color: "#3b82f6", width: 2 },
-          areaStyle: monthly ? undefined : { color: "#3b82f6", opacity: 0.15 },
+          // 画布的面积填充自上而下渐隐(2:14 趋势图),不是一块实色。
+          areaStyle: monthly
+            ? undefined
+            : {
+                color: {
+                  type: "linear",
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [
+                    { offset: 0, color: "rgba(59,130,246,0.35)" },
+                    { offset: 1, color: "rgba(59,130,246,0.02)" },
+                  ],
+                },
+              },
         },
       ],
     };
@@ -282,8 +297,13 @@ export default function Overview() {
             估算口径:输入 + 输出 + 缓存写 + 缓存读 四档分别乘价求和,不包含已结清金额
           </p>
         </div>
-        <div className="min-h-[96px] w-full max-w-[360px] self-center">
-          <EChart option={chartOption} height={120} />
+        {/* 趋势图面板(设计稿 2:14):灰底 12px 圆角 + 16px 内边距,
+            面板色随主题(--color-chart-panel),不写死画布十六进制。 */}
+        <div
+          className="w-full max-w-[380px] self-center rounded-xl p-4"
+          style={{ backgroundColor: "var(--color-chart-panel)" }}
+        >
+          <EChart option={chartOption} height={108} />
         </div>
       </section>
 
