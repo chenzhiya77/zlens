@@ -9,9 +9,8 @@ import httpx
 
 from zlens.core.config import Settings
 
-# 部分托管模型(如 siliconflow 的 Qwen3-VL-30B-A3B)对琐碎请求也要 75s+ 才出首字节,
-# 60s 会让「测试连接」与识别必然超时;放宽到 3 分钟,并优先换更快的模型而不是硬等。
-_VLM_TIMEOUT = 180.0
+# 20 秒快速失败:超时的模型让用户马上看到错误并换模型,而不是对着转圈等三分钟。
+_VLM_TIMEOUT = 20.0
 
 
 class VlmUnconfigured(Exception):
