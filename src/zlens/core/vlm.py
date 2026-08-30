@@ -9,6 +9,10 @@ import httpx
 
 from zlens.core.config import Settings
 
+# 部分托管模型(如 siliconflow 的 Qwen3-VL-30B-A3B)对琐碎请求也要 75s+ 才出首字节,
+# 60s 会让「测试连接」与识别必然超时;放宽到 3 分钟,并优先换更快的模型而不是硬等。
+_VLM_TIMEOUT = 180.0
+
 
 class VlmUnconfigured(Exception):
     """The VLM section of settings is empty."""
@@ -50,7 +54,7 @@ def chat(
             url,
             headers={"Authorization": f"Bearer {settings.vlm_api_key}"},
             json=payload,
-            timeout=60.0,
+            timeout=_VLM_TIMEOUT,
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
