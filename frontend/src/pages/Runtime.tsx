@@ -377,7 +377,8 @@ export default function Runtime() {
                 <thead>
                   <tr className="text-xs text-zinc-500">
                     <th className="py-2 pr-4 text-left font-normal">来源</th>
-                    <th className="py-2 px-4 text-left font-normal">请求总数 · 占比</th>
+                    <th className="py-2 px-4 text-right font-normal">请求总数</th>
+                    <th className="py-2 px-4 text-right font-normal">占比</th>
                     <th className="py-2 px-4 text-right font-normal">重试率</th>
                     <th className="py-2 px-4 text-right font-normal">出错率</th>
                     <th className="py-2 px-4 text-right font-normal">取消率</th>
@@ -392,7 +393,7 @@ export default function Runtime() {
                       return (
                         <tr key={row.id} className="border-t border-zinc-800/60">
                           <td className="py-2.5 pr-4 font-mono">{row.id}</td>
-                          <td colSpan={7} className="py-2.5 px-4 text-xs text-zinc-600">
+                          <td colSpan={8} className="py-2.5 px-4 text-xs text-zinc-600">
                             {row.status === "error" ? "该来源数据获取失败" : "…"}
                           </td>
                         </tr>
@@ -407,8 +408,9 @@ export default function Runtime() {
                     return (
                       <tr key={row.id} className="border-t border-zinc-800/60">
                         <td className="py-2.5 pr-4 font-mono">{row.id}</td>
-                        <td className="py-2.5 px-4">
-                          {fmtInt(row.count)} · {fmtPct(compareTotal > 0 ? row.count / compareTotal : 0)}
+                        <td className="py-2.5 px-4 text-right">{fmtInt(row.count)}</td>
+                        <td className="py-2.5 px-4 text-right">
+                          {fmtPct(compareTotal > 0 ? row.count / compareTotal : 0)}
                         </td>
                         <td className={`py-2.5 px-4 text-right ${zeroDimClass(row.retryRate)}`}>
                           {fmtPct(row.retryRate)}
