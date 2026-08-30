@@ -25,6 +25,22 @@ const BAD_RATE = 0.15;
 const fmtInt = (n: number) => n.toLocaleString("zh-CN");
 const fmtPct = (ratio: number) => `${(ratio * 100).toFixed(1)}%`;
 
+/** error_type 的中文行名;API 与导出保留原始标识,这里只影响显示。
+    未收录的类型回退原值——猜错一个翻译比留着英文更糟。 */
+const ERROR_TYPE_ZH: Record<string, string> = {
+  rate_limited: "触发限流",
+  server_error: "服务端错误",
+  network_error: "网络错误",
+  cancelled: "用户取消",
+  unknown: "未知错误",
+  auth_failed: "鉴权失败",
+  invalid_request: "无效请求",
+  model_error: "模型错误",
+  context_exceeded: "上下文超限",
+  timeout: "请求超时",
+};
+const errorLabel = (type: string) => ERROR_TYPE_ZH[type] ?? type;
+
 function fmtMs(ms: number): string {
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms.toFixed(0)} ms`;
 }
@@ -338,7 +354,7 @@ export default function Runtime() {
           }
           sub={
             topError && d.errored_requests > 0
-              ? `错误率 ${fmtPct(errorRate)} · 首位 ${topError.error_type} ${fmtPct(
+              ? `错误率 ${fmtPct(errorRate)} · 首位 ${errorLabel(topError.error_type)} ${fmtPct(
                   topError.request_count / d.errored_requests,
                 )}`
               : `错误率 ${fmtPct(errorRate)} · 无错误记录`
@@ -458,14 +474,19 @@ export default function Runtime() {
             {d.errors.map((e) => (
               <div key={`${e.source}/${e.error_type}/${e.error_code ?? ""}`}>
                 <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
-                  <span className="flex items-baseline gap-2 font-mono">
+                  <span className="flex items-baseline gap-2 text-xs text-zinc-300">
                     {source === "" && (
                       <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] text-zinc-500">
                         {e.source}
                       </span>
                     )}
-                    {e.error_type}
-                    {e.error_code !== null && <span className="text-zinc-500">{e.error_code}</span>}
+                    <span className="font-medium">{errorLabel(e.error_type)}</span>
+                    {errorLabel(e.error_type) !== e.error_type && (
+                      <span className="font-mono text-zinc-500">{e.error_type}</span>
+                    )}
+                    {e.error_code !== null && (
+                      <span className="font-mono text-zinc-500">{e.error_code}</span>
+                    )}
                   </span>
                   <span className="tabular-nums text-zinc-400">
                     {fmtInt(e.request_count)} 次
