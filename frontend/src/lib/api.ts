@@ -219,7 +219,8 @@ export interface PerformanceReport {
   time_to_first_token_ms: LatencyStats | null;
 }
 
-export const fetchPerformance = () => getJson<PerformanceReport>("/api/performance");
+export const fetchPerformance = (q: ViewQuery = {}) =>
+  getJson<PerformanceReport>(`/api/performance${viewQueryString(q)}`);
 
 /** Currency a price screenshot was written in, as reported by the extractor. */
 export type Currency = "cny" | "usd";
@@ -357,4 +358,5 @@ export interface HealthReport {
   errors: ErrorGroup[];
 }
 
-export const fetchHealth = () => getJson<HealthReport>("/api/health");
+export const fetchHealth = (q: ViewQuery = {}) =>
+  getJson<HealthReport>(`/api/health${viewQueryString(q)}`);

@@ -1,7 +1,7 @@
 # T26 — 运行质量页画布重排 + 来源维度
 
 **Blocked by:** None —— 后端能力已就位(T09/T10 多源适配、T18 来源枚举、`/api/performance` 与 `/api/health` 的 `?source=` 参数)
-**Status:** open (2026-08-30)
+**Status:** done (2026-08-30)
 
 ## User story
 

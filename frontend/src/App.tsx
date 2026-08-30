@@ -14,7 +14,7 @@ import Usage from "./pages/Usage";
 const NAV: { path: string; label: string; group: string | null; ownTitle?: boolean }[] = [
   { path: "/", label: "总览", group: null, ownTitle: true },
   { path: "/usage", label: "用量分析", group: "分析" },
-  { path: "/runtime", label: "运行质量", group: "分析" },
+  { path: "/runtime", label: "运行质量", group: "分析", ownTitle: true },
   { path: "/pricing", label: "价格表", group: "配置" },
   { path: "/settings", label: "设置", group: "配置" },
 ];
