@@ -329,7 +329,7 @@ export default function Runtime() {
             {fmtInt(d.request_count)} 次模型请求
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex flex-wrap items-center gap-2">
           {/* 来源 chips 来自 meta.sources(同总览页):不可用置灰并带原因,
               挂了也不能消失——消失会让人以为那段用量从来不存在。 */}
           <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-900/60 p-0.5">
@@ -370,28 +370,27 @@ export default function Runtime() {
           {/* 时间范围(T27):预设是滚动时长,刷新按当前时刻重新翻译;
               自定义是日期级,半开换算在 resolveRuntimeWindow 里。 */}
           <Segmented value={windowPreset} options={WINDOW_OPTIONS} onChange={switchWindow} />
+          {/* 自定义区间悬浮面板(T27 反馈):绝对定位挂在控制行下缘,弹出/收起
+              不改变页面高度,下方内容零位移;选中「自定义」期间保持展开。 */}
+          {windowPreset === "custom" && (
+            <div className="absolute right-0 top-full z-20 mt-2 flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-500 shadow-xl">
+              <input
+                type="date"
+                value={customStart ?? ""}
+                onChange={(e) => setParams({ start: e.target.value })}
+                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+              />
+              <span>→</span>
+              <input
+                type="date"
+                value={customEnd ?? ""}
+                onChange={(e) => setParams({ end: e.target.value })}
+                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+              />
+            </div>
+          )}
         </div>
       </header>
-
-      {/* 自定义区间单独一行(T27 反馈):内联在控制行里会随弹出手行挤压/回流,
-          放到下方独立行,控制行宽度恒定;右对齐保持在切换控件的正下方。 */}
-      {windowPreset === "custom" && (
-        <div className="flex items-center justify-end gap-2 text-xs text-zinc-500">
-          <input
-            type="date"
-            value={customStart ?? ""}
-            onChange={(e) => setParams({ start: e.target.value })}
-            className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-          />
-          <span>→</span>
-          <input
-            type="date"
-            value={customEnd ?? ""}
-            onChange={(e) => setParams({ end: e.target.value })}
-            className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-          />
-        </div>
-      )}
 
       {/* 健康结论栏:状态点 + 三个派生比率(纯计数除法,前端算安全)。 */}
       <section className="flex flex-wrap items-center justify-between gap-x-10 gap-y-4 rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-5">
