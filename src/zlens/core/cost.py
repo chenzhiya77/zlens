@@ -7,8 +7,10 @@ number depends on a rate that could change later. The table is keyed per channel
 `source|provider_id|model_id` (see model_key) — because the same model served
 through different channels can be priced differently; nothing is ever merged across
 channels. A channel absent from the table is never priced: it renders tokens-only
-with a null cost, and the overview total stays null while any served model is
-unpriced (a partial total would silently understate spend). A row may additionally
+with a null cost, and the overview total stays null while any model that burned
+tokens is unpriced (a partial total would silently understate spend) — a 0-token
+row prices to ¥0 under any unit price, so its missing price hides nothing and it
+never vetoes the total. A row may additionally
 carry `buyout_amount`, the one-off CNY paid for a plan: it is summed into its own
 overview total, never amortised into a per-token price and never added to the
 consumption figure — paid money and burned money answer different questions. A
@@ -128,6 +130,17 @@ def _cost_of(item, table: PriceTable) -> float | None:
     )
 
 
+def _blocks_total(item) -> bool:
+    """Whether this row's missing price hides real spend.
+
+    Only burned tokens make a unit price matter: a 0-token row costs ¥0 under
+    any price, so vetoing the total over it would report "未计价" for a figure
+    that is fully computable — e.g. one failed probe request through an unpriced
+    route (real case: zcode|builtin:zai|* with 1 request, 0 tokens).
+    """
+    return item.estimated_cost is None and item.total_tokens > 0
+
+
 def attach_model_costs(models, table: PriceTable):
     return [m.model_copy(update={"estimated_cost": _cost_of(m, table)}) for m in models]
 
@@ -146,7 +159,8 @@ def _cache_hit_rate(cache_read: int, cache_creation: int, billed_input: int) -> 
 
 
 def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
-    """Attach per-model costs; the total only appears when every model is priced.
+    """Attach per-model costs; the total only appears when every model that
+    burned tokens is priced.
 
     The buyout total rides along ungated: it is money already paid for a plan, so a
     missing per-token price cannot make it unknown. The two figures answer different
@@ -163,8 +177,14 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
         )
         for m in by_model
     ]
-    fully_priced = bool(by_model) and all(m.estimated_cost is not None for m in by_model)
-    total = round(sum(m.estimated_cost for m in by_model), 6) if fully_priced else None
+    fully_priced = bool(by_model) and not any(_blocks_total(m) for m in by_model)
+    # 0-token rows are unpriced by design and contribute exactly ¥0, so the sum
+    # skips them instead of pretending they carry a number.
+    total = (
+        round(sum(m.estimated_cost for m in by_model if m.estimated_cost is not None), 6)
+        if fully_priced
+        else None
+    )
     totals = OverviewTotals(
         request_count=overview.request_count,
         input_tokens=overview.input_tokens,
@@ -192,7 +212,7 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
     """Fold per-model-per-project rows into project totals.
 
     Same honesty rule as the daily fold: a project's cost stays null while any
-    model contributing to it is unpriced.
+    model that burned tokens in it is unpriced.
     """
     priced_rows = attach_model_costs(rows, table)
     totals: dict[str, dict[str, int]] = {}
@@ -206,9 +226,9 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
         project_sources.setdefault(row.directory, set()).add(row.source)
         for key in _SUMMARY_KEYS:
             acc[key] += getattr(row, key)
-        if row.estimated_cost is None:
+        if _blocks_total(row):
             unpriced_projects.add(row.directory)
-        else:
+        elif row.estimated_cost is not None:
             project_costs[row.directory] = (
                 project_costs.get(row.directory, 0.0) + row.estimated_cost
             )
@@ -233,7 +253,8 @@ def _fold_usage(
 ) -> tuple[list[DailyUsage], list[DailyModelUsage]]:
     """The one fold both granularities share (T17): token buckets always sum
     (they don't depend on the price table), while a bucket's cost stays null
-    when any model serving it is unpriced — same honesty rule as the overview.
+    when any model that burned tokens in it is unpriced — same honesty rule as
+    the overview.
     """
     by_model = attach_model_costs(rows, table)
     totals: dict[str, dict[str, int]] = {}
@@ -246,9 +267,9 @@ def _fold_usage(
         sources.setdefault(key, set()).add(row.source)
         for key_field in _SUMMARY_KEYS:
             acc[key_field] += getattr(row, key_field)
-        if row.estimated_cost is None:
+        if _blocks_total(row):
             unpriced.add(key)
-        else:
+        elif row.estimated_cost is not None:
             costs[key] = costs.get(key, 0.0) + row.estimated_cost
 
     usage = [

@@ -481,7 +481,7 @@ export default function Pricing() {
         价格基准：<span className="text-zinc-300">人民币 ¥ / 1M tokens</span>
         （应用内只存人民币，行上不标币种）。一行一个渠道：同一个模型经不同渠道提供时价格
         可以不同，互不合并。<span className="text-zinc-300">四档全留空 = 未定价</span>
-        ，该渠道只显示 token、不折算金额；全部渠道有价后总览总额才会出现。两笔钱分开记：
+        ，该渠道只显示 token、不折算金额；用到的渠道都有价后总览总额才会出现。两笔钱分开记：
         <span className="text-zinc-300">现总价</span>
         是按已保存单价 × 该渠道用量算出的消耗（与总览同源，改完单价请保存才会刷新）；
         <span className="text-zinc-300">买断价 ¥</span>
