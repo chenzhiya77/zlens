@@ -5,17 +5,53 @@ import { ErrorBlock, LoadingBlock } from "../components/states";
 import { aliasKey, displayName, getAliases, parseModelKey } from "../lib/alias";
 import type { ExtractedPrice, ExtractResult, ModelPrice } from "../lib/api";
 import { extractPricing, fetchMeta, fetchOverview, fetchPricing, savePricing } from "../lib/api";
-import { formatCost } from "../lib/format";
+import { formatCost, formatTokens } from "../lib/format";
 
 export const PRICE_FIELDS = ["input", "output", "cache_read", "cache_write"] as const;
 
-const EMPTY_PRICE: ModelPrice = {
-  input: 0,
-  output: 0,
-  cache_read: 0,
-  cache_write: 0,
+/**
+ * The editing state carries one more value than the wire type: a unit price is
+ * either a number or 留空(null). 留空 means 「我不知道这个渠道多少钱」; 0 means
+ * 「这个渠道按量免费」 and is a real price. They must never collapse into each
+ * other — a row read as 0-priced is charged into the overview total as nothing,
+ * which understates spend while looking fully priced.
+ *
+ * The backend has no per-row null: 未定价 is the key being absent from `models`
+ * (cost.py `price_for` → None → tokens-only). So 留空 turns into 「不写这一行」 at
+ * save time, which is the whole point of the nullable field.
+ */
+interface EditableRow {
+  input: number | null;
+  output: number | null;
+  cache_read: number | null;
+  cache_write: number | null;
+  buyout_amount: number | null;
+}
+
+const EMPTY_ROW: EditableRow = {
+  input: null,
+  output: null,
+  cache_read: null,
+  cache_write: null,
   buyout_amount: null,
 };
+
+/** 填过任意一档(含 0)即已定价;四档全空 = 未定价,保存时不落库。 */
+const isPriced = (row: EditableRow) => PRICE_FIELDS.some((field) => row[field] !== null);
+
+/** 已落库却四档全 0:看着「有价格」,实际把总览合计算小了 —— 迁移条要揪出的就是它。 */
+const isZeroPriced = (row: EditableRow) => PRICE_FIELDS.every((field) => row[field] === 0);
+
+// A row that only carries a buyout amount still has to be written, because 买断支出
+// is summed from stored rows. The wire type has no null unit price, so such a row
+// goes out as 0-priced — the one place where 留空 cannot survive the round trip.
+const toWire = (row: EditableRow): ModelPrice => ({
+  input: row.input ?? 0,
+  output: row.output ?? 0,
+  cache_read: row.cache_read ?? 0,
+  cache_write: row.cache_write ?? 0,
+  buyout_amount: row.buyout_amount,
+});
 
 // Everything stored and displayed here is CNY — one currency, one state, no
 // per-row labels to keep straight. The only conversion is automatic and happens
@@ -39,7 +75,7 @@ export default function Pricing() {
   const usageQuery = useQuery({ queryKey: ["overview"], queryFn: () => fetchOverview() });
   const [aliases] = useState(() => getAliases());
 
-  const [rows, setRows] = useState<Record<string, ModelPrice>>({});
+  const [rows, setRows] = useState<Record<string, EditableRow>>({});
   const [fx, setFx] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -47,19 +83,24 @@ export default function Pricing() {
   // Which row the next pasted screenshot targets: a screenshot is always
   // armed per channel, so recognition pre-fills that row only ("互不影响").
   const [pastingFor, setPastingFor] = useState<string | null>(null);
+  // 待补价 is the bulk of the table and carries no numbers; it starts folded so the
+  // page opens on the channels that already have a price.
+  const [showUnpriced, setShowUnpriced] = useState(false);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
   const fxValue = fx.trim() === "" || !Number.isFinite(Number(fx)) ? null : Number(fx);
 
   // Channel key -> what this row's unit prices currently add up to (null = the
-  // channel has no unit price yet, or no usage has been seen for it).
-  const costByKey = new Map<string, number | null>(
-    (usageQuery.data?.by_model ?? []).map((m) => [
-      aliasKey(m.source, m.provider_id, m.model_id),
-      m.estimated_cost,
-    ]),
-  );
+  // channel has no unit price yet, or no usage has been seen for it). Tokens ride
+  // along because 待补价 is ordered by what is actually burning.
+  const costByKey = new Map<string, number | null>();
+  const tokensByKey = new Map<string, number>();
+  for (const m of usageQuery.data?.by_model ?? []) {
+    const key = aliasKey(m.source, m.provider_id, m.model_id);
+    costByKey.set(key, m.estimated_cost);
+    tokensByKey.set(key, m.total_tokens);
+  }
 
   const normId = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
   const lastSegment = (s: string) => normId(s.split("/").pop() ?? "");
@@ -72,9 +113,16 @@ export default function Pricing() {
     return lastSegment(rowModelId) !== "" && lastSegment(rowModelId) === lastSegment(modelId);
   };
 
+  const nameOf = (key: string) => {
+    const channel = parseModelKey(key);
+    return channel
+      ? displayName(aliases, channel.source, channel.providerId, channel.modelId)
+      : key;
+  };
+
   // Merge recognised numbers into the row, folding $ → ¥ first so only the newly
   // recognised fields are converted (the row's existing values are already CNY).
-  const mergedPrice = (base: ModelPrice, m: ExtractedPrice, rate: number | null) => {
+  const mergedPrice = (base: EditableRow, m: ExtractedPrice, rate: number | null) => {
     const fold = (value: number | null) =>
       value === null ? null : Math.round(value * (rate ?? 1) * 1e4) / 1e4;
     return {
@@ -120,7 +168,7 @@ export default function Pricing() {
       setNotice(null);
       return;
     }
-    const base = rowsRef.current[targetKey] ?? EMPTY_PRICE;
+    const base = rowsRef.current[targetKey] ?? EMPTY_ROW;
     const next = mergedPrice(base, hit, isUsd ? fxValue : null);
     setRows((prev) => ({ ...prev, [targetKey]: next }));
     const folded = isUsd
@@ -136,14 +184,15 @@ export default function Pricing() {
   };
 
   // Load the stored price table plus every channel that exists but has no price yet.
+  // A channel absent from pricing.json loads blank, never as 0.
   useEffect(() => {
     if (!tableQuery.data || !metaQuery.data) return;
-    const merged: Record<string, ModelPrice> = {};
+    const merged: Record<string, EditableRow> = {};
     for (const [key, price] of Object.entries(tableQuery.data.models)) {
-      merged[key] = { ...EMPTY_PRICE, ...price };
+      merged[key] = { ...EMPTY_ROW, ...price };
     }
     for (const key of metaQuery.data.unpriced_models) {
-      if (!(key in merged)) merged[key] = { ...EMPTY_PRICE };
+      if (!(key in merged)) merged[key] = { ...EMPTY_ROW };
     }
     setRows(merged);
     setFx(tableQuery.data.fx_usd_cny?.toString() ?? "");
@@ -187,8 +236,11 @@ export default function Pricing() {
         fx_usd_cny: fxValue,
         models: Object.fromEntries(
           Object.entries(rows)
-            .filter(([key]) => key.trim() !== "")
-            .map(([key, price]) => [key, { ...EMPTY_PRICE, ...price }]),
+            .filter(
+              ([key, row]) =>
+                key.trim() !== "" && (isPriced(row) || row.buyout_amount !== null),
+            )
+            .map(([key, row]) => [key, toWire(row)]),
         ),
       }),
     onSuccess: () => {
@@ -203,8 +255,8 @@ export default function Pricing() {
     setRows((prev) => ({
       ...prev,
       [key]: {
-        ...(prev[key] ?? EMPTY_PRICE),
-        [field]: Number.isFinite(num) ? num : 0,
+        ...(prev[key] ?? EMPTY_ROW),
+        [field]: value.trim() === "" || !Number.isFinite(num) ? null : num,
       },
     }));
   };
@@ -216,10 +268,36 @@ export default function Pricing() {
     setRows((prev) => ({
       ...prev,
       [key]: {
-        ...(prev[key] ?? EMPTY_PRICE),
+        ...(prev[key] ?? EMPTY_ROW),
         buyout_amount: value.trim() === "" || !Number.isFinite(num) ? null : num,
       },
     }));
+  };
+
+  // Rows already persisted with four 0s: they read as priced, so the overview total
+  // counts them as free spend. Clearing them back to 留空 is the fix, but a row that
+  // also carries a buyout amount must keep its row — paid money cannot vanish just
+  // because its metered price is being corrected.
+  const zeroPricedKeys = Object.entries(rows)
+    .filter(
+      ([key, row]) =>
+        parseModelKey(key) !== null && isZeroPriced(row) && row.buyout_amount === null,
+    )
+    .map(([key]) => key);
+  const zeroPricedWithBuyout = Object.entries(rows).filter(
+    ([key, row]) =>
+      parseModelKey(key) !== null && isZeroPriced(row) && row.buyout_amount !== null,
+  ).length;
+
+  const migrateZeroPriced = () => {
+    const keys = new Set(zeroPricedKeys);
+    setRows((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([key, row]) => [key, keys.has(key) ? { ...EMPTY_ROW } : row]),
+      ),
+    );
+    setNotice(`已把 ${keys.size} 行改为未定价（保存后生效）：它们只展示 token，不再冒充 0 价`);
+    setError(null);
   };
 
   if (tableQuery.isLoading || metaQuery.isLoading) return <LoadingBlock />;
@@ -228,13 +306,183 @@ export default function Pricing() {
 
   const legacyCount = Object.keys(rows).filter((key) => !parseModelKey(key)).length;
 
+  // 队列而不是网格:已定价按金额降序常显,待补价按用量降序默认折叠 ——
+  // 值得补价的那一行,就是正在烧 token 的那一行。
+  const entries = Object.entries(rows);
+  const byCost = (a: [string, EditableRow], b: [string, EditableRow]) =>
+    (costByKey.get(b[0]) ?? -1) - (costByKey.get(a[0]) ?? -1) ||
+    nameOf(a[0]).localeCompare(nameOf(b[0]));
+  const byTokens = (a: [string, EditableRow], b: [string, EditableRow]) =>
+    (tokensByKey.get(b[0]) ?? 0) - (tokensByKey.get(a[0]) ?? 0) ||
+    nameOf(a[0]).localeCompare(nameOf(b[0]));
+  const pricedRows = entries
+    .filter(([key, row]) => parseModelKey(key) !== null && isPriced(row))
+    .sort(byCost);
+  const unpricedRows = entries
+    .filter(([key, row]) => parseModelKey(key) !== null && !isPriced(row))
+    .sort(byTokens);
+  const legacyRows = entries.filter(([key]) => parseModelKey(key) === null);
+  const unpricedTokens = unpricedRows.reduce((sum, [key]) => sum + (tokensByKey.get(key) ?? 0), 0);
+  const pricedTotal = pricedRows.reduce((sum, [key]) => sum + (costByKey.get(key) ?? 0), 0);
+
+  const groupRow = (
+    label: string,
+    summary: string,
+    toggle?: () => void,
+    open?: boolean,
+  ) => (
+    <tr>
+      <td colSpan={10} className="bg-zinc-950/50 p-0">
+        {/* 吸附必须落在 max-content 宽度的子元素上:整格与表格同宽,sticky 推不动它,
+            窄屏横滚时分组标题会滚出可视区并被吸附列盖住。 */}
+        <div className="sticky left-0 w-max max-w-full py-1.5 pl-5 pr-5">
+          {toggle ? (
+            <button
+              type="button"
+              onClick={toggle}
+              className="flex items-baseline gap-2 text-left text-[11px] text-zinc-500 hover:text-zinc-300"
+            >
+              <span className="w-3 font-mono text-zinc-600">{open ? "▾" : "▸"}</span>
+              <span className="font-medium text-zinc-400">{label}</span>
+              <span className="text-zinc-600">{summary}</span>
+            </button>
+          ) : (
+            <div className="flex items-baseline gap-2 text-[11px]">
+              <span className="font-medium text-zinc-400">{label}</span>
+              <span className="text-zinc-600">{summary}</span>
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+
+  const renderRow = ([key, price]: [string, EditableRow]) => {
+    const channel = parseModelKey(key);
+    const cost = costByKey.get(key);
+    const costHint = !isPriced(price)
+      ? "该行未定价：只展示 token，不折算金额"
+      : cost === undefined
+        ? "该渠道还没有用量记录"
+        : cost === null
+          ? "该行未填单价，无法折算"
+          : "按已保存的单价估算，与总览同源";
+    return (
+      <tr key={key} className="border-b border-zinc-800/60">
+        <td className="sticky left-0 z-10 bg-zinc-900 py-2 pl-5 pr-2">
+          {channel ? (
+            <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+              {channel.source}
+            </span>
+          ) : (
+            <span className="font-mono text-[11px] text-zinc-600">—</span>
+          )}
+        </td>
+        <td className="sticky left-28 z-10 border-r border-zinc-800/60 bg-zinc-900 py-2 pr-4">
+          {channel ? (
+            <div
+              className="truncate font-mono text-xs text-zinc-200"
+              title={`${key}\n模型 ${channel.modelId} · 渠道 ${channel.providerId}`}
+            >
+              {nameOf(key)}
+            </div>
+          ) : (
+            <div className="min-w-0">
+              <div className="truncate font-mono text-xs text-amber-300" title={key}>
+                {key}
+              </div>
+              <div className="truncate text-[10px] text-amber-400/80">
+                旧格式键：匹配不到渠道，请删除
+              </div>
+            </div>
+          )}
+        </td>
+        <td className="py-2 pr-4">
+          <button
+            type="button"
+            onClick={() => {
+              setPastingFor((cur) => (cur === key ? null : key));
+              setError(null);
+              setNotice(null);
+            }}
+            title="点击后把该行设为识别目标，再在本页按 Ctrl+V（macOS 为 ⌘V）粘贴该渠道单价截图；识别结果只预填这一行"
+            className={`whitespace-nowrap rounded-md border border-dashed px-3 py-1 text-[11px] font-mono transition-colors ${
+              pastingFor === key
+                ? "border-sky-500/80 bg-sky-500/10 text-sky-400"
+                : "border-zinc-600 text-zinc-500 hover:border-sky-500/70 hover:text-sky-400"
+            }`}
+          >
+            {pastingFor === key
+              ? extracting
+                ? "正在识别…"
+                : "Ctrl+V 粘贴"
+              : "粘贴截图识别"}
+          </button>
+        </td>
+        {PRICE_FIELDS.map((field) => (
+          <td key={field} className="py-2 pr-4 text-right">
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={price[field] ?? ""}
+              onChange={(e) => update(key, field, e.target.value)}
+              title={
+                price[field] === null
+                  ? "未填 —— 四档都留空的行视为未定价，只展示 token；敲 0 才是「按量免费」"
+                  : `${price[field]} ¥ / 1M tokens`
+              }
+              className={`w-full rounded-md border bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200 ${
+                price[field] === null ? "border-dashed border-zinc-700" : "border-zinc-800"
+              }`}
+            />
+          </td>
+        ))}
+        <td className="py-2 pr-4 text-right">
+          <input
+            type="number"
+            step="any"
+            min="0"
+            value={price.buyout_amount ?? ""}
+            onChange={(e) => updateBuyout(key, e.target.value)}
+            placeholder="—"
+            title="一次性买断/套餐付款金额（人民币），留空表示这行不是买断；不参与按量计算"
+            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200"
+          />
+        </td>
+        <td
+          className="w-20 py-2 pr-4 text-right text-xs tabular-nums text-zinc-400"
+          title={costHint}
+        >
+          {cost === null || cost === undefined ? "—" : formatCost(cost)}
+        </td>
+        <td className="py-2 pr-5 text-right">
+          <button
+            type="button"
+            onClick={() =>
+              setRows((prev) => {
+                const updated = { ...prev };
+                delete updated[key];
+                return updated;
+              })
+            }
+            className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+          >
+            删除
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <p className="text-xs text-zinc-500">
         价格基准：<span className="text-zinc-300">人民币 ¥ / 1M tokens</span>
         （应用内只存人民币，行上不标币种）。一行一个渠道：同一个模型经不同渠道提供时价格
-        可以不同，互不合并。没有价格的渠道只显示 token、不折算金额；全部渠道有价后总览总额
-        才会出现。两笔钱分开记：<span className="text-zinc-300">现总价</span>
+        可以不同，互不合并。<span className="text-zinc-300">四档全留空 = 未定价</span>
+        ，该渠道只显示 token、不折算金额；全部渠道有价后总览总额才会出现。两笔钱分开记：
+        <span className="text-zinc-300">现总价</span>
         是按已保存单价 × 该渠道用量算出的消耗（与总览同源，改完单价请保存才会刷新）；
         <span className="text-zinc-300">买断价 ¥</span>
         是你为套餐一次性付过的钱，不进按量计算、只汇总成总览的「买断支出」，两者永不相加。
@@ -251,6 +499,27 @@ export default function Pricing() {
           source|provider_id|model_id 键。
         </span>
       </p>
+
+      {zeroPricedKeys.length > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+          <span className="text-amber-300">
+            {zeroPricedKeys.length} 个渠道已落库但四档全是 0 —— 它们会被当成「有价格」，
+            把总览的合计金额算小。改成未定价后只展示 token。
+          </span>
+          {zeroPricedWithBuyout > 0 && (
+            <span className="shrink-0 text-amber-400/70">
+              另有 {zeroPricedWithBuyout} 行四档为 0 但带买断额，保留不动。
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={migrateZeroPriced}
+            className="ml-auto shrink-0 rounded-md border border-amber-500/60 px-3 py-1 text-amber-300 hover:bg-amber-500/15"
+          >
+            全部改为未定价
+          </button>
+        </div>
+      )}
 
       <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 py-5">
         <div className="mb-4 flex items-center gap-2 px-5 text-xs text-zinc-400">
@@ -275,159 +544,62 @@ export default function Pricing() {
             来源与渠道名各自成列(与总览/按项目同构),两列一起吸附在左侧——
             横滚时仍然认得出这一行是给谁定价。 */}
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] table-fixed text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
-              <th className="sticky left-0 z-10 w-28 bg-zinc-900 py-2 pl-5 pr-2 font-medium">
-                来源
-              </th>
-              <th
-                className="sticky left-28 z-10 w-56 border-r border-zinc-800/60 bg-zinc-900 py-2 pr-4 font-medium"
-                title="行名悬停可看完整渠道键;同名渠道请在总览「别名」列起名区分"
-              >
-                渠道名
-              </th>
-              <th
-                className="w-28 py-2 pr-4 font-medium"
-                title="识别到截图上是美元价，会按上方「1 美元 = ? 人民币」自动折成人民币再预填（汇率没填则拒绝预填）；截图没写币种就按人民币原样填。手工抄的美元价请自己换算后填人民币数字"
-              >
-                识别<span className="ml-1 font-mono text-[10px] text-zinc-600">($→¥)</span>
-              </th>
-              <th className="py-2 pr-4 text-right font-medium">输入 /1M</th>
-              <th className="py-2 pr-4 text-right font-medium">输出 /1M</th>
-              <th className="py-2 pr-4 text-right font-medium">缓存读 /1M</th>
-              <th className="py-2 pr-4 text-right font-medium">缓存写 /1M</th>
-              <th
-                className="py-2 pr-4 text-right font-medium"
-                title="为这个渠道一次性买断/买套餐付的钱（人民币）。留空表示这行不是买断；它不参与按量计算，只汇总成总览的「买断支出」"
-              >
-                买断价 ¥
-              </th>
-              <th
-                className="w-20 py-2 pr-4 text-right font-medium"
-                title="按已保存的本行单价 × 该渠道已发生的用量算出，与总览同源、不可编辑（改完单价请保存）。— 表示该行还没有单价，或该渠道还没有用量"
-              >
-                现总价
-              </th>
-              <th className="w-16 py-2 pr-5 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(rows).map(([key, price]) => {
-              const channel = parseModelKey(key);
-              const name = channel
-                ? displayName(aliases, channel.source, channel.providerId, channel.modelId)
-                : "";
-              const cost = costByKey.get(key);
-              const costHint =
-                cost === undefined
-                  ? "该渠道还没有用量记录"
-                  : cost === null
-                    ? "该行未填单价，无法折算"
-                    : "按已保存的单价估算，与总览同源";
-              return (
-                <tr key={key} className="border-b border-zinc-800/60">
-                  <td className="sticky left-0 z-10 bg-zinc-900 py-2 pl-5 pr-2">
-                    {channel ? (
-                      <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
-                        {channel.source}
-                      </span>
-                    ) : (
-                      <span className="font-mono text-[11px] text-zinc-600">—</span>
-                    )}
-                  </td>
-                  <td className="sticky left-28 z-10 border-r border-zinc-800/60 bg-zinc-900 py-2 pr-4">
-                    {channel ? (
-                      <div
-                        className="truncate font-mono text-xs text-zinc-200"
-                        title={`${key}\n模型 ${channel.modelId} · 渠道 ${channel.providerId}`}
-                      >
-                        {name}
-                      </div>
-                    ) : (
-                      <div className="min-w-0">
-                        <div className="truncate font-mono text-xs text-amber-300" title={key}>
-                          {key}
-                        </div>
-                        <div className="truncate text-[10px] text-amber-400/80">
-                          旧格式键：匹配不到渠道，请删除
-                        </div>
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPastingFor((cur) => (cur === key ? null : key));
-                        setError(null);
-                        setNotice(null);
-                      }}
-                      title="点击后把该行设为识别目标，再在本页按 Ctrl+V（macOS 为 ⌘V）粘贴该渠道单价截图；识别结果只预填这一行"
-                      className={`whitespace-nowrap rounded-md border border-dashed px-3 py-1 text-[11px] font-mono transition-colors ${
-                        pastingFor === key
-                          ? "border-sky-500/80 bg-sky-500/10 text-sky-400"
-                          : "border-zinc-600 text-zinc-500 hover:border-sky-500/70 hover:text-sky-400"
-                      }`}
-                    >
-                      {pastingFor === key
-                        ? extracting
-                          ? "正在识别…"
-                          : "Ctrl+V 粘贴"
-                        : "粘贴截图识别"}
-                    </button>
-                  </td>
-                  {PRICE_FIELDS.map((field) => (
-                    <td key={field} className="py-2 pr-4 text-right">
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={price[field]}
-                        onChange={(e) => update(key, field, e.target.value)}
-                        title={`${price[field]} ¥ / 1M tokens`}
-                        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200"
-                      />
-                    </td>
-                  ))}
-                  <td className="py-2 pr-4 text-right">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={price.buyout_amount ?? ""}
-                      onChange={(e) => updateBuyout(key, e.target.value)}
-                      placeholder="—"
-                      title="一次性买断/套餐付款金额（人民币），留空表示这行不是买断；不参与按量计算"
-                      className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200"
-                    />
-                  </td>
-                  <td
-                    className="w-20 py-2 pr-4 text-right text-xs tabular-nums text-zinc-400"
-                    title={costHint}
-                  >
-                    {cost === null || cost === undefined ? "—" : formatCost(cost)}
-                  </td>
-                  <td className="py-2 pr-5 text-right">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRows((prev) => {
-                          const updated = { ...prev };
-                          delete updated[key];
-                          return updated;
-                        })
-                      }
-                      className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
-                    >
-                      删除
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+          <table className="w-full min-w-[920px] table-fixed text-sm">
+            <thead>
+              <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+                <th className="sticky left-0 z-10 w-28 bg-zinc-900 py-2 pl-5 pr-2 font-medium">
+                  来源
+                </th>
+                <th
+                  className="sticky left-28 z-10 w-56 border-r border-zinc-800/60 bg-zinc-900 py-2 pr-4 font-medium"
+                  title="行名悬停可看完整渠道键;同名渠道请在总览「别名」列起名区分"
+                >
+                  渠道名
+                </th>
+                <th
+                  className="w-28 py-2 pr-4 font-medium"
+                  title="识别到截图上是美元价，会按上方「1 美元 = ? 人民币」自动折成人民币再预填（汇率没填则拒绝预填）；截图没写币种就按人民币原样填。手工抄的美元价请自己换算后填人民币数字"
+                >
+                  识别<span className="ml-1 font-mono text-[10px] text-zinc-600">($→¥)</span>
+                </th>
+                <th className="py-2 pr-4 text-right font-medium">输入 /1M</th>
+                <th className="py-2 pr-4 text-right font-medium">输出 /1M</th>
+                <th className="py-2 pr-4 text-right font-medium">缓存读 /1M</th>
+                <th className="py-2 pr-4 text-right font-medium">缓存写 /1M</th>
+                <th
+                  className="py-2 pr-4 text-right font-medium"
+                  title="为这个渠道一次性买断/买套餐付的钱（人民币）。留空表示这行不是买断；它不参与按量计算，只汇总成总览的「买断支出」"
+                >
+                  买断价 ¥
+                </th>
+                <th
+                  className="w-20 py-2 pr-4 text-right font-medium"
+                  title="按已保存的本行单价 × 该渠道已发生的用量算出，与总览同源、不可编辑（改完单价请保存）。— 表示该行还没有单价，或该渠道还没有用量"
+                >
+                  现总价
+                </th>
+                <th className="w-16 py-2 pr-5 text-right font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pricedRows.length > 0 &&
+                groupRow("已定价", `${pricedRows.length} 个渠道 · 合计 ${formatCost(pricedTotal)}`)}
+              {pricedRows.map(renderRow)}
+              {unpricedRows.length > 0 &&
+                groupRow(
+                  "待补价",
+                  `${unpricedRows.length} 个渠道未定价 · 合计 ${formatTokens(unpricedTokens)} tokens 未折算${
+                    showUnpriced ? "" : " · 点击展开"
+                  }`,
+                  () => setShowUnpriced((cur) => !cur),
+                  showUnpriced,
+                )}
+              {showUnpriced && unpricedRows.map(renderRow)}
+              {legacyRows.length > 0 &&
+                groupRow("旧格式键", `${legacyRows.length} 行匹配不到渠道`)}
+              {legacyRows.map(renderRow)}
+            </tbody>
+          </table>
         </div>
 
         <div className="mt-4 flex items-center gap-3 px-5">
