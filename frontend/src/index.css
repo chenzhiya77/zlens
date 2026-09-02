@@ -113,3 +113,17 @@ select:-webkit-autofill {
   caret-color: var(--color-zinc-200);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* Native number-input spin buttons appear inside the box on hover and sit right
+   where right-aligned values live — in narrow price cells they cover the number
+   (实测价格表窄列). Prices and FX rates are typed precisely, stepping by 1 was
+   never useful here; arrow keys still work. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
