@@ -90,6 +90,9 @@ export default function Pricing() {
   const [viewFilter, setViewFilter] = useState<"all" | "priced" | "unpriced">("all");
   // 规则说明弹层(画布⑦):文字墙收进 ? 入口,一条规则不删。
   const [rulesOpen, setRulesOpen] = useState(false);
+  // 行悬停(画布「新文件」价格行 hover 态,取自选中实例的实际配色):整行铺
+  // sky-500/10 底、渠道名转 sky-400;识别图标属④的行内识别方案,不随悬停出现。
+  const [hoverRow, setHoverRow] = useState<string | null>(null);
   // 脏计数快照(画布⑥):上次装载 / 保存成功时的 fx 与逐行值;保存按钮的
   // 「N 处未保存改动」由它与当前编辑态 diff 得出,替代「改完请保存」教学句。
   const [savedState, setSavedState] = useState<{ fx: string; rows: Record<string, EditableRow> }>({
@@ -380,8 +383,19 @@ export default function Pricing() {
           ? "该行未填单价，无法折算"
           : "按已保存的单价估算，与总览同源";
     return (
-      <tr key={key} className="border-b border-zinc-800/60">
-        <td className="sticky left-0 z-10 bg-zinc-900 py-2 pl-5 pr-2">
+      <tr
+        key={key}
+        onMouseEnter={() => setHoverRow(key)}
+        onMouseLeave={() => setHoverRow(null)}
+        className={`border-b border-zinc-800/60 ${hoverRow === key ? "bg-sky-500/10" : ""}`}
+      >
+        <td
+          className={`sticky left-0 z-10 py-2 pl-5 pr-2 ${
+            hoverRow === key
+              ? "bg-[color-mix(in_srgb,var(--color-sky-500)_10%,var(--color-zinc-900,#18181b))]"
+              : "bg-zinc-900"
+          }`}
+        >
           {channel ? (
             <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
               {channel.source}
@@ -390,10 +404,18 @@ export default function Pricing() {
             <span className="font-mono text-[11px] text-zinc-600">—</span>
           )}
         </td>
-        <td className="sticky left-28 z-10 border-r border-zinc-800/60 bg-zinc-900 py-2 pr-4">
+        <td
+          className={`sticky left-28 z-10 border-r border-zinc-800/60 py-2 pr-4 ${
+            hoverRow === key
+              ? "bg-[color-mix(in_srgb,var(--color-sky-500)_10%,var(--color-zinc-900,#18181b))]"
+              : "bg-zinc-900"
+          }`}
+        >
           {channel ? (
             <div
-              className="truncate font-mono text-xs text-zinc-200"
+              className={`truncate font-mono text-xs transition-colors ${
+                hoverRow === key ? "text-sky-400" : "text-zinc-200"
+              }`}
               title={`${key}\n模型 ${channel.modelId} · 渠道 ${channel.providerId}`}
             >
               {nameOf(key)}
