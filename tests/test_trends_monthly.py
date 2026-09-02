@@ -1,5 +1,5 @@
-"""T17: monthly granularity for /api/trends/daily — same fold, same unpriced
-rule, only the bucket key changes; the default (day) behaves exactly as before.
+"""T17: monthly granularity for /api/trends/daily — same fold, same
+unpriced-as-¥0 rule, only the bucket key changes; the default (day) behaves exactly as before.
 """
 
 import json
@@ -72,12 +72,12 @@ def test_monthly_buckets_by_year_month(client):
     assert august["total_tokens"] == 2_500_000
 
 
-def test_one_unpriced_day_poisons_its_whole_month_cost(client):
+def test_unpriced_day_counts_zero_in_its_month(client):
     body = client.get("/api/trends/daily", params={"granularity": "month"}).json()
 
     by_month = {d["day"]: d["estimated_cost"] for d in body["days"]}
     assert by_month["2026-07"] == 1.0  # fully priced: sum of its days
-    assert by_month["2026-08"] is None  # one unpriced channel → null, not partial
+    assert by_month["2026-08"] == 2.0  # unpriced model-b counts ¥0: model-a only
 
 
 def test_month_sums_equal_day_sums(client):

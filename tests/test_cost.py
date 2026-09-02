@@ -126,14 +126,14 @@ def test_cache_beyond_input_clamps_instead_of_going_negative(make_db, tmp_path):
     assert body["estimated_cost"] == 0.0003
 
 
-def test_unpriced_model_stays_null_and_total_stays_null(make_db, tmp_path):
+def test_unpriced_row_stays_null_total_sums_priced_only(make_db, tmp_path):
     client = _client(make_db, _ROWS, tmp_path, prices=_PRICES)
 
     body = client.get("/api/overview").json()
 
     costs = {m["model_id"]: m["estimated_cost"] for m in body["by_model"]}
     assert costs == {"priced": _PRICED_COST, "unpriced": None}
-    assert body["estimated_cost"] is None
+    assert body["estimated_cost"] == _PRICED_COST  # unpriced row counts ¥0
     assert client.get("/api/meta").json()["unpriced_models"] == ["zcode|chan-reseller|unpriced"]
 
 
@@ -167,8 +167,8 @@ def test_price_never_leaks_between_channels_of_one_model(make_db, tmp_path):
 
     costs = {m["provider_id"]: m["estimated_cost"] for m in body["by_model"]}
     assert costs == {"chan-a": 3.0, "chan-b": None}
-    # Honest total: one priced channel is not a spend figure for the whole account.
-    assert body["estimated_cost"] is None
+    # Unpriced channel counts as ¥0: the total is the priced channel only.
+    assert body["estimated_cost"] == 3.0
     assert client.get("/api/meta").json()["unpriced_models"] == ["zcode|chan-b|kimi-k3"]
 
 
@@ -231,7 +231,7 @@ def test_malformed_pricing_file_degrades_to_unpriced(make_db, tmp_path):
     response = client.get("/api/overview")
 
     assert response.status_code == 200
-    assert response.json()["estimated_cost"] is None
+    assert response.json()["estimated_cost"] == 0  # nothing priced: nothing to sum
     assert response.json()["by_model"][0]["estimated_cost"] is None
 
 
@@ -253,10 +253,10 @@ def test_stale_currency_field_in_pricing_file_is_ignored(make_db, tmp_path):
 def test_buyout_total_counts_paid_amounts_not_usage(make_db, tmp_path):
     """Money already paid is its own figure: rows without an amount contribute
     nothing, a plan channel that never ran still counts, and an unpriced channel
-    gates the consumption total but cannot make paid money unknown."""
+    counts ¥0 toward the consumption total but cannot make paid money unknown."""
     client = _client(
         make_db,
-        _ROWS,  # second channel stays unpriced -> consumption figure stays null
+        _ROWS,  # second channel stays unpriced -> it counts ¥0 toward consumption
         tmp_path,
         prices={
             _KEY: {**_PRICES[_KEY], "buyout_amount": 299.0},
@@ -266,7 +266,7 @@ def test_buyout_total_counts_paid_amounts_not_usage(make_db, tmp_path):
 
     body = client.get("/api/overview").json()
 
-    assert body["estimated_cost"] is None
+    assert body["estimated_cost"] == _PRICED_COST
     assert body["buyout_total"] == 359.0
 
 

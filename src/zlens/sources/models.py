@@ -144,8 +144,9 @@ class OverviewTotals(BaseModel):
 
     Backend-computed, never re-summed in the client: the unpriced rule is a
     business decision, not arithmetic. Token buckets are upstream facts and sum
-    unconditionally; the cost total stays null while any served model is unpriced
-    (a partial total would silently understate spend). No pagination exists, and
+    unconditionally; the cost total always ships — unpriced models count as ¥0
+    (an unfilled price reads as free), while rows keep their null cost as the
+    not-priced marker. No pagination exists, and
     this is the FULL total by construction — name and shape stay "totals", not
     "page totals", so a future pager cannot bury a semantic trap here.
     """

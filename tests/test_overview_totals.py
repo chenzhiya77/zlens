@@ -1,7 +1,7 @@
 """T20: backend-computed grand totals on /api/overview.
 
-Same honesty rule as ever: token buckets are upstream facts and always sum;
-the cost total is null while any served model is unpriced.
+Token buckets are upstream facts and always sum; unpriced models count as ¥0,
+so the cost total always ships.
 """
 
 import json
@@ -56,17 +56,19 @@ def test_fully_priced_totals_equal_sum_of_models(client):
     assert body["totals"]["request_count"] == 2
 
 
-def test_unpriced_model_nulls_cost_total_but_tokens_still_sum(make_settings, tmp_path):
+def test_unpriced_model_counts_zero_but_tokens_still_sum(make_settings, tmp_path):
     pricing_path = tmp_path / "pricing.json"
     pricing_path.write_text(
-        json.dumps({"version": 1, "models": {"zcode|chan-a|model-a": {"input": 1.0}}}),
+        json.dumps(
+            {"version": 1, "models": {"zcode|chan-a|model-a": {"input": 1.0, "output": 0.0}}}
+        ),
         encoding="utf-8",
     )
     client = TestClient(create_app(make_settings(rows=_ROWS, pricing_path=pricing_path)))
 
     body = client.get("/api/overview").json()
 
-    assert body["totals"]["estimated_cost"] is None
+    assert body["totals"]["estimated_cost"] == 1.0  # model-a only; model-b counts ¥0
     assert body["totals"]["total_tokens"] == 1_500_000
     assert body["totals"]["input_tokens"] == 1_500_000
 

@@ -85,9 +85,9 @@ def test_fully_empty_previous_window_is_null(make_settings, tmp_path):
     assert body["delta"] is None
 
 
-def test_unpriced_side_gives_previous_but_no_change_rate(make_settings, tmp_path):
-    """model-b is unpriced in the current window only: cost previous still ships,
-    change_rate is null — unknown is not "no change"."""
+def test_unpriced_side_counts_as_free(make_settings, tmp_path):
+    """model-b is unpriced in the current window: it counts as ¥0 (an unfilled
+    price reads as free), so the rate compares priced spend on both sides."""
     rows = [
         _row("2026-08-01", 1_000_000),
         _row("2026-08-15", 3_000_000),
@@ -97,9 +97,9 @@ def test_unpriced_side_gives_previous_but_no_change_rate(make_settings, tmp_path
 
     body = client.get("/api/overview", params={"start": _W_START, "end": _W_END}).json()
 
-    assert body["estimated_cost"] is None  # current period has an unpriced channel
+    assert body["estimated_cost"] == 3.0  # model-a only; model-b counts as ¥0
     assert body["delta"]["request_count"] == {"previous": 1, "change_rate": 1.0}
-    assert body["delta"]["estimated_cost"] == {"previous": 1.0, "change_rate": None}
+    assert body["delta"]["estimated_cost"] == {"previous": 1.0, "change_rate": 2.0}
 
 
 def test_open_and_default_windows_have_no_delta(make_settings, tmp_path):

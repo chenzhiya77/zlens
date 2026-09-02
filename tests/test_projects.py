@@ -40,7 +40,7 @@ def test_projects_fold_join_and_cost_rule(client_factory, tmp_path):
     proj = projects["E:/work/proj"]
     assert (proj.request_count, proj.total_tokens) == (2, 600)
     assert proj.title == "T2"  # representative title = MAX(title) of the project's sessions
-    assert proj.estimated_cost is None  # unpriced model b contributes -> honest null
+    assert proj.estimated_cost == 1.0  # unpriced model b counts ¥0 -> a's cost only
 
     orphan = projects["(unknown)"]
     assert (orphan.request_count, orphan.total_tokens) == (2, 60)

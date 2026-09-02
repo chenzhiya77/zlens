@@ -62,8 +62,8 @@ def test_daily_trends_fold_and_cost_rule(client_factory, tmp_path):
     day1, day2 = body.days
     assert (day1.request_count, day1.input_tokens, day1.total_tokens) == (2, 300, 3330)
     assert (day2.request_count, day2.total_tokens) == (1, 3330)
-    # Day 1 serves unpriced `beta` -> honest null; day 2 is alpha-only -> priced.
-    assert day1.estimated_cost is None
+    # Day 1 serves unpriced `beta` -> beta counts ¥0, alpha prices the day; day 2 alpha-only.
+    assert day1.estimated_cost == 0.0003
     assert day2.estimated_cost == 0.0009
 
     assert [(r.day, r.model_id) for r in body.by_model] == [

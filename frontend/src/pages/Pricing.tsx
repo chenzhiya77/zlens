@@ -376,7 +376,7 @@ export default function Pricing() {
     const channel = parseModelKey(key);
     const cost = costByKey.get(key);
     const costHint = !isPriced(price)
-      ? "该行未定价：只展示 token，不折算金额"
+      ? "该行未定价，按 ¥0 计入按量消耗；定价后按实际单价折算"
       : cost === undefined
         ? "该渠道还没有用量记录"
         : cost === null

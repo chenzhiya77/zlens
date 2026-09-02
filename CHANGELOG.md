@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   一律不渲染;缓存命中率带「按 token 计」说明。
 - 表格合计行数据(T20):`/api/overview` 新增 `totals`(请求数 + 六个 token 档 + 成本),
   由后端按**窗口 + 来源过滤后的全量**计算,前端不再自己把 `by_model` 加一遍。诚实规则
-  沿用:任一模型未计价 → `totals.estimated_cost` 为 null,token 各档照常求和。
+  沿用:未计价渠道按 ¥0 计入 `totals.estimated_cost`(见下方 Changed),token 各档照常求和。
   「全部合计 · 共 N 个模型」的渲染在 T24(修正设计稿「本页合计 · 前 5 个模型」的自相矛盾,
   不做分页)。
 - Markdown 导出(T22):新增 `GET /api/export`,固定输出按模型明细的 Markdown 表格
@@ -163,6 +163,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   模型列保留原名作唯一标识;排行 / 环形图 / 日趋势按别名显示,悬停可看原名。
 - 日趋势按 provider 拆分序列:同名不同路由的模型不再合并成一条线;视图内名字
   碰撞时追加 provider 短哈希后缀兜底区分。
+
+### Changed
+
+- **未计价不再把总额打成「未计价」(产品决策,取代本节此前各条中的 null 门控表述)**:
+  按量消耗对未计价渠道**按 ¥0 计入**——没填价就当免费,总额、环比、日/月趋势与按项目
+  的成本聚合永远直接给出;实付金额看「买断支出」,两笔钱照旧永不相加。行级仍保留
+  「未计价 / —」标记(排序照旧排最后),价格表「待补价」分组照旧列出待补渠道;导出的
+  行级「未计价」不变,文件头口径注明「合计按 0 计入」。
 
 ### Fixed
 
