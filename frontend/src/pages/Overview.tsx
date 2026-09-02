@@ -6,6 +6,7 @@ import DateRangePopover from "../components/DateRangePopover";
 import EChart from "../components/EChart";
 import ModelTable from "../components/ModelTable";
 import Segmented from "../components/Segmented";
+import SourceSelect from "../components/SourceSelect";
 import { ErrorBlock, LoadingBlock } from "../components/states";
 import { aliasKey, displayName, getAliases, setAlias } from "../lib/alias";
 import {
@@ -20,7 +21,7 @@ import { formatDateTime, formatCost, formatTokens } from "../lib/format";
 import type { EChartsOption } from "echarts";
 
 // 视觉结构照 Ardot 设计稿 719793184410961「AI用量总览-优化版」(T23),交互接线为 T24:
-// 周期选择器 / 来源 chips / 搜索 / 表头排序 / 合计行 / 导出 / 每小时自动刷新。
+// 周期选择器 / 来源下拉 / 搜索 / 表头排序 / 合计行 / 导出 / 每小时自动刷新。
 // 视图状态只有四项(窗口、来源、排序方向),全部住在 URL query 里——刷新、
 // 前进后退、分享链接天然还原,不需要额外的状态管理。
 // 唯一允许的客户端过滤是搜索框(过滤显示行,不影响任何聚合);其余一律走后端参数,
@@ -381,44 +382,12 @@ export default function Overview() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* 来源 chips 来自 T18 的 meta.sources:不可用来源置灰并带原因,
-                挂了也不能消失——消失会让人以为那段用量从来不存在。 */}
-            <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-900/60 p-0.5">
-              <button
-                type="button"
-                onClick={() => setParams({ source: null })}
-                className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                  source === "" ? "bg-zinc-700/80 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                全部
-              </button>
-              {(m.sources ?? []).map((ref) =>
-                ref.available ? (
-                  <button
-                    key={ref.id}
-                    type="button"
-                    onClick={() => setParams({ source: ref.id })}
-                    title={ref.id}
-                    className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                      source === ref.id
-                        ? "bg-zinc-700/80 text-zinc-100"
-                        : "text-zinc-400 hover:text-zinc-200"
-                    }`}
-                  >
-                    {ref.id}
-                  </button>
-                ) : (
-                  <span
-                    key={ref.id}
-                    title={`不可用:${ref.error ?? "未知原因"}`}
-                    className="cursor-not-allowed rounded-md px-3 py-1.5 text-xs text-zinc-600 line-through"
-                  >
-                    {ref.id}
-                  </span>
-                ),
-              )}
-            </div>
+            {/* 来源选择来自 T18 的 meta.sources;不可用来源在下拉里置灰并带原因。 */}
+            <SourceSelect
+              sources={m.sources ?? []}
+              value={source}
+              onChange={(s) => setParams({ source: s })}
+            />
             <input
               type="search"
               value={search}

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import DateRangePopover from "../components/DateRangePopover";
 import Segmented from "../components/Segmented";
+import SourceSelect from "../components/SourceSelect";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/states";
 import {
   fetchHealth,
@@ -15,7 +16,7 @@ import {
 // 视觉结构照 Ardot 画布「运行质量2」720202836547247 顶层 2:2(T26):
 // 页头 → 健康结论栏 → 请求耗时/首字延迟两卡 → 三张统计卡 → 分源对比卡 →
 // 错误类型分布卡 → 底部口径注。视图状态只有来源与时间窗口两项,住 URL query(同 T24)。
-// 分源不是前端拆分:chips 让后端按 ?source= 重算整页;分源对比卡对每个可用源
+// 分源不是前端拆分:来源下拉让后端按 ?source= 重算整页;分源对比卡对每个可用源
 // 并行发独立请求,前端只做纯计数除法,P99 直接用后端 latency_stats 结果。
 // 时间窗口(T27)贯通本页全部请求:预设由前端翻译成绝对 since(后端不猜锚点),
 // 分源对比卡与主查询共享同一窗口,逐源合计 = 结论栏请求数的对账在任意窗口下成立。
@@ -243,7 +244,7 @@ export default function Runtime() {
     refetchInterval: REFRESH_MS,
   });
 
-  // 分源对比卡恒显示全部可用源(不受 chips 影响);与主查询共享缓存
+  // 分源对比卡恒显示全部可用源(不受来源选择影响);与主查询共享缓存
   // (选中 zcode 时 ["health", {source:"zcode"}] 就是同一份)。
   // 窗口随主查询:对比的是同一段时间的各源,合计才与结论栏对得上。
   const available = (meta.data?.sources ?? []).filter((ref) => ref.available);
@@ -331,43 +332,12 @@ export default function Runtime() {
           </p>
         </div>
         <div className="relative flex flex-wrap items-center gap-2">
-          {/* 来源 chips 来自 meta.sources(同总览页):不可用置灰并带原因,
-              挂了也不能消失——消失会让人以为那段用量从来不存在。 */}
-          <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-900/60 p-0.5">
-            <button
-              type="button"
-              onClick={() => setParams({ source: null })}
-              className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                source === "" ? "bg-zinc-700/80 text-zinc-100" : "text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              全部
-            </button>
-            {(meta.data.sources ?? []).map((ref) =>
-              ref.available ? (
-                <button
-                  key={ref.id}
-                  type="button"
-                  onClick={() => setParams({ source: ref.id })}
-                  className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-                    source === ref.id
-                      ? "bg-zinc-700/80 text-zinc-100"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  {ref.id}
-                </button>
-              ) : (
-                <span
-                  key={ref.id}
-                  title={`不可用:${ref.error ?? "未知原因"}`}
-                  className="cursor-not-allowed rounded-md px-3 py-1.5 text-xs text-zinc-600 line-through"
-                >
-                  {ref.id}
-                </span>
-              ),
-            )}
-          </div>
+          {/* 来源选择来自 meta.sources(同总览页);不可用来源在下拉里置灰并带原因。 */}
+          <SourceSelect
+            sources={meta.data.sources ?? []}
+            value={source}
+            onChange={(s) => setParams({ source: s })}
+          />
           {/* 时间范围(T27):预设是滚动时长,刷新按当前时刻重新翻译;
               自定义是日期级,半开换算在 resolveRuntimeWindow 里。 */}
           <Segmented value={windowPreset} options={WINDOW_OPTIONS} onChange={switchWindow} />
@@ -445,7 +415,7 @@ export default function Runtime() {
         />
       </div>
 
-      {/* 分源对比卡:逐源独立请求,不受页头 chips 影响;仅一个可用源时无对比对象,整卡隐藏。 */}
+      {/* 分源对比卡:逐源独立请求,不受页头来源选择影响;仅一个可用源时无对比对象,整卡隐藏。 */}
       {compareOn && (
         <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
@@ -537,7 +507,7 @@ export default function Runtime() {
         </section>
       )}
 
-      {/* 错误类型分布:标题随 chips 变化;合并视图下每行带来源标签,单来源时省去。 */}
+      {/* 错误类型分布:标题随来源选择变化;合并视图下每行带来源标签,单来源时省去。 */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="text-sm font-semibold">
