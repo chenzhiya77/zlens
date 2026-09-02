@@ -43,18 +43,21 @@ def chat(
         )
 
     url = settings.vlm_base_url.rstrip("/") + "/chat/completions"
+    headers = {"Authorization": f"Bearer {settings.vlm_api_key}"}
     payload = {
         "model": settings.vlm_model,
         "messages": [{"role": "user", "content": content}],
         "temperature": 0,
+        # 思考模型会把 20 秒快速失败预算烧在推理链上(实测 10 行价格表 17s);
+        # 提取是感知任务,关掉思考快 3 倍且结果不变。
+        "enable_thinking": False,
     }
     try:
-        response = httpx.post(
-            url,
-            headers={"Authorization": f"Bearer {settings.vlm_api_key}"},
-            json=payload,
-            timeout=_VLM_TIMEOUT,
-        )
+        response = httpx.post(url, headers=headers, json=payload, timeout=_VLM_TIMEOUT)
+        if response.status_code == 400 and "enable_thinking" in response.text:
+            # 严格的 OpenAI 兼容服务拒绝非标准参数,去掉后原样重试。
+            del payload["enable_thinking"]
+            response = httpx.post(url, headers=headers, json=payload, timeout=_VLM_TIMEOUT)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except httpx.HTTPError as exc:

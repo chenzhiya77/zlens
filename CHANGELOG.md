@@ -149,6 +149,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- 截图识别不再被思考模型拖超时:DashScope 上 qwen 系思考模型默认边读价格表边写推理链
+  (实测 10 行表 17s,贴着 20 秒快速失败线,真实截图一越线前端就报
+  `The read operation timed out`)。现在 VLM 请求带 `enable_thinking: false`——提取是感知
+  任务,关思考快约 3 倍且结果不变(实测 5–11s);严格的 OpenAI 兼容服务若以 400 拒绝该
+  非标准参数,自动去掉参数重试一次。
 - **买断支出「没填」与「填了 0」不再混同**(T14,存量正确性修复):此前价格表里一条买断行
   都没有时,总览 KPI 也显示 `¥0.00`,和真填了 0 的免费套餐长得一模一样——把「没填」画成
   ¥0.00 就是撒谎。现在 API 的 `buyout_total` 无任何买断行时返回 `null`,总览显示「未填」;
