@@ -22,6 +22,7 @@ from zlens.sources.models import (
     ModelUsageSummary,
     Overview,
     ProjectModelUsage,
+    TimeWindow,
     model_key,
 )
 from zlens.sources.timeutil import ms_to_datetime as _ms_to_datetime
@@ -102,6 +103,29 @@ def _window_sql(window: DateWindow | None) -> tuple[str, list]:
     if window.end is not None:
         conds.append(f"{day} <= ?")
         params.append(window.end.isoformat())
+    return " AND ".join(conds), params
+
+
+def _time_sql(window: TimeWindow | None) -> tuple[str, list]:
+    """SQL predicate for the half-open instant window [since, until), or ("", []).
+
+    Hour-level bounds cannot go through the day-cut expression above, so this
+    compares the raw epoch-ms column directly — the same column every other
+    query reads, pushed down per the T15/T27 discipline (never filter a full
+    result outside the source). Returns the bare conditions (no WHERE keyword).
+    """
+    if window is None:
+        return "", []
+    conds: list[str] = []
+    params: list = []
+    since_ms = window.since_ms()
+    if since_ms is not None:
+        conds.append("started_at >= ?")
+        params.append(since_ms)
+    until_ms = window.until_ms()
+    if until_ms is not None:
+        conds.append("started_at < ?")
+        params.append(until_ms)
     return " AND ".join(conds), params
 
 
@@ -248,26 +272,32 @@ class ZcodeSource:
             for row in rows
         ]
 
-    def latency_samples(self) -> tuple[list[int], list[int]]:
+    def latency_samples(self, window: TimeWindow | None = None) -> tuple[list[int], list[int]]:
+        where, params = _time_sql(window)
+        extra = f" AND {where}" if where else ""
         with self._cursor() as con:
             durations = [
                 row[0]
                 for row in con.execute(
                     "SELECT duration_ms FROM model_usage"
-                    " WHERE duration_ms IS NOT NULL ORDER BY duration_ms"
+                    f" WHERE duration_ms IS NOT NULL{extra} ORDER BY duration_ms",
+                    params,
                 )
             ]
             ttfts = [
                 row[0]
                 for row in con.execute(
                     "SELECT time_to_first_token_ms FROM model_usage"
-                    " WHERE time_to_first_token_ms IS NOT NULL"
-                    " ORDER BY time_to_first_token_ms"
+                    f" WHERE time_to_first_token_ms IS NOT NULL{extra}"
+                    " ORDER BY time_to_first_token_ms",
+                    params,
                 )
             ]
         return durations, ttfts
 
-    def health_summary(self) -> HealthReport:
+    def health_summary(self, window: TimeWindow | None = None) -> HealthReport:
+        where, params = _time_sql(window)
+        predicate = f" WHERE {where}" if where else ""
         with self._cursor() as con:
             row = con.execute(
                 "SELECT COUNT(*) AS request_count,"
@@ -280,12 +310,15 @@ class ZcodeSource:
                 "   AS context_exceeded,"
                 " COALESCE(SUM(CASE WHEN error_type IS NOT NULL THEN 1 ELSE 0 END), 0)"
                 "   AS errored_requests"
-                " FROM model_usage"
+                f" FROM model_usage{predicate}",
+                params,
             ).fetchone()
+            error_where = " WHERE error_type IS NOT NULL" + (f" AND {where}" if where else "")
             error_rows = con.execute(
                 "SELECT error_type, error_code, COUNT(*) AS n"
-                " FROM model_usage WHERE error_type IS NOT NULL"
-                " GROUP BY error_type, error_code ORDER BY n DESC, error_type"
+                f" FROM model_usage{error_where}"
+                " GROUP BY error_type, error_code ORDER BY n DESC, error_type",
+                params,
             ).fetchall()
         return HealthReport(
             request_count=row["request_count"],

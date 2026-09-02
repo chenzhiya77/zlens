@@ -14,6 +14,7 @@ from zlens.sources.models import (
     ModelsRanking,
     Overview,
     ProjectModelUsage,
+    TimeWindow,
 )
 
 
@@ -50,6 +51,6 @@ class SourceAdapter(Protocol):
 
     def usage_by_project_model(self) -> list[ProjectModelUsage]: ...
 
-    def latency_samples(self) -> tuple[list[int], list[int]]: ...
+    def latency_samples(self, window: TimeWindow | None = None) -> tuple[list[int], list[int]]: ...
 
-    def health_summary(self) -> HealthReport: ...
+    def health_summary(self, window: TimeWindow | None = None) -> HealthReport: ...

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
-from zlens.api.deps import get_source
-from zlens.sources.models import HealthReport
+from zlens.api.deps import get_source, get_time_window
+from zlens.sources.models import HealthReport, TimeWindow
 from zlens.sources.multi import MultiSource
 
 router = APIRouter(prefix="/api", tags=["health"])
@@ -11,5 +11,6 @@ router = APIRouter(prefix="/api", tags=["health"])
 def get_health(
     store: MultiSource = Depends(get_source),
     source: str | None = Query(default=None),
+    window: TimeWindow | None = Depends(get_time_window),
 ) -> HealthReport:
-    return store.select(source).health_summary()
+    return store.select(source).health_summary(window)

@@ -1,6 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
+import Segmented from "../components/Segmented";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/states";
 import {
   fetchHealth,
@@ -12,11 +13,47 @@ import {
 
 // 视觉结构照 Ardot 画布「运行质量2」720202836547247 顶层 2:2(T26):
 // 页头 → 健康结论栏 → 请求耗时/首字延迟两卡 → 三张统计卡 → 分源对比卡 →
-// 错误类型分布卡 → 底部口径注。视图状态只有 source 一项,住 URL query(同 T24)。
+// 错误类型分布卡 → 底部口径注。视图状态只有来源与时间窗口两项,住 URL query(同 T24)。
 // 分源不是前端拆分:chips 让后端按 ?source= 重算整页;分源对比卡对每个可用源
 // 并行发独立请求,前端只做纯计数除法,P99 直接用后端 latency_stats 结果。
+// 时间窗口(T27)贯通本页全部请求:预设由前端翻译成绝对 since(后端不猜锚点),
+// 分源对比卡与主查询共享同一窗口,逐源合计 = 结论栏请求数的对账在任意窗口下成立。
 
 const REFRESH_MS = 300_000; // 页头文案「自动刷新 · 5 分钟」必须与此一致
+
+type RuntimeWindowPreset = "1h" | "24h" | "7d" | "all" | "custom";
+
+const WINDOW_OPTIONS: { key: RuntimeWindowPreset; label: string }[] = [
+  { key: "1h", label: "近 1 小时" },
+  { key: "24h", label: "近 24 小时" },
+  { key: "7d", label: "近 7 天" },
+  { key: "all", label: "全部" },
+  { key: "custom", label: "自定义" },
+];
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const localDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const localDateTime = (d: Date) =>
+  `${localDate(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+
+/** 预设是滚动时长,锚点 =「现在」,每次请求由前端翻译(同总览相对窗口的分工);
+    监控页刷新后窗口跟着现在走,而不是钉在挑选的那一刻。自定义是日期级,
+    换算成半开 [起日 00:00, 止日+1 00:00)——后端 until 是开上界,不用编 23:59:59.999。 */
+function resolveRuntimeWindow(
+  preset: RuntimeWindowPreset,
+  start?: string,
+  end?: string,
+): Pick<ViewQuery, "since" | "until"> {
+  if (preset === "all") return {};
+  if (preset === "custom") {
+    if (!start || !end) return {};
+    const dayAfterEnd = new Date(`${end}T00:00:00`);
+    dayAfterEnd.setDate(dayAfterEnd.getDate() + 1);
+    return { since: `${start}T00:00:00`, until: localDateTime(dayAfterEnd) };
+  }
+  const hours = preset === "1h" ? 1 : preset === "24h" ? 24 : 24 * 7;
+  return { since: localDateTime(new Date(Date.now() - hours * 3_600_000)) };
+}
 
 /** 状态点阈值(按出错率):健康结论栏与分源对比卡行级共用,票 T26 定的口径。 */
 const WARN_RATE = 0.05;
@@ -158,6 +195,9 @@ type CompareRow =
 export default function Runtime() {
   const [searchParams, setSearchParams] = useSearchParams();
   const source = searchParams.get("source") ?? "";
+  const windowPreset = (searchParams.get("window") ?? "all") as RuntimeWindowPreset;
+  const customStart = searchParams.get("start") ?? undefined;
+  const customEnd = searchParams.get("end") ?? undefined;
 
   const setParams = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams);
@@ -168,7 +208,24 @@ export default function Runtime() {
     setSearchParams(next, { replace: true });
   };
 
-  const query: ViewQuery = { source: source || undefined };
+  /** 切到自定义时预填近 7 天,URL 里的区间永远合法、请求不会带空日期。 */
+  const switchWindow = (preset: RuntimeWindowPreset) => {
+    if (preset !== "custom") {
+      setParams({ window: preset, start: null, end: null });
+      return;
+    }
+    const today = new Date();
+    const first = new Date(today);
+    first.setDate(today.getDate() - 6);
+    setParams({
+      window: "custom",
+      start: customStart ?? localDate(first),
+      end: customEnd ?? localDate(today),
+    });
+  };
+
+  const windowQuery = resolveRuntimeWindow(windowPreset, customStart, customEnd);
+  const query: ViewQuery = { source: source || undefined, ...windowQuery };
   const meta = useQuery({
     queryKey: ["meta", "runtime"],
     queryFn: () => fetchMeta(),
@@ -187,20 +244,21 @@ export default function Runtime() {
 
   // 分源对比卡恒显示全部可用源(不受 chips 影响);与主查询共享缓存
   // (选中 zcode 时 ["health", {source:"zcode"}] 就是同一份)。
+  // 窗口随主查询:对比的是同一段时间的各源,合计才与结论栏对得上。
   const available = (meta.data?.sources ?? []).filter((ref) => ref.available);
   const compareOn = available.length >= 2;
   const perSourceHealth = useQueries({
     queries: available.map((ref) => ({
-      queryKey: ["health", { source: ref.id }],
-      queryFn: () => fetchHealth({ source: ref.id }),
+      queryKey: ["health", { source: ref.id, ...windowQuery }],
+      queryFn: () => fetchHealth({ source: ref.id, ...windowQuery }),
       enabled: compareOn,
       refetchInterval: REFRESH_MS,
     })),
   });
   const perSourcePerf = useQueries({
     queries: available.map((ref) => ({
-      queryKey: ["performance", { source: ref.id }],
-      queryFn: () => fetchPerformance({ source: ref.id }),
+      queryKey: ["performance", { source: ref.id, ...windowQuery }],
+      queryFn: () => fetchPerformance({ source: ref.id, ...windowQuery }),
       enabled: compareOn,
       refetchInterval: REFRESH_MS,
     })),
@@ -245,14 +303,24 @@ export default function Runtime() {
   const maxErrorCount = Math.max(...d.errors.map((e) => e.request_count), 1);
   const topError = d.errors[0];
 
+  // 副标题与口径注共用的窗口名:「全部」保持 T26 的累计口径措辞。
+  const windowLabel =
+    windowPreset === "all"
+      ? "累计口径"
+      : windowPreset === "custom"
+        ? customStart && customEnd
+          ? `${customStart} ~ ${customEnd}`
+          : "自定义区间"
+        : (WINDOW_OPTIONS.find((o) => o.key === windowPreset)?.label ?? "");
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">运行质量</h1>
           <p className="mt-1 text-xs text-zinc-500">
-            累计口径 · {source === "" ? "数据库共" : `${source} 共`} {fmtInt(d.request_count)}{" "}
-            次模型请求
+            {windowLabel} · {source === "" ? "数据库共" : `${source} 共`}{" "}
+            {fmtInt(d.request_count)} 次模型请求
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -293,6 +361,26 @@ export default function Runtime() {
               ),
             )}
           </div>
+          {/* 时间范围(T27):预设是滚动时长,刷新按当前时刻重新翻译;
+              自定义是日期级,半开换算在 resolveRuntimeWindow 里。 */}
+          <Segmented value={windowPreset} options={WINDOW_OPTIONS} onChange={switchWindow} />
+          {windowPreset === "custom" && (
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <input
+                type="date"
+                value={customStart ?? ""}
+                onChange={(e) => setParams({ start: e.target.value })}
+                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+              />
+              <span>→</span>
+              <input
+                type="date"
+                value={customEnd ?? ""}
+                onChange={(e) => setParams({ end: e.target.value })}
+                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+              />
+            </div>
+          )}
           <span className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-500">
             自动刷新 · 5 分钟
           </span>
@@ -511,8 +599,8 @@ export default function Runtime() {
 
       <p className="text-xs leading-relaxed text-zinc-600">
         口径:重试按请求粒度计数(retry_count &gt; 0 视为含重试);错误按 error_type
-        非空计,同类错误合并展示。
-        {source === "" ? "当前为数据库累计口径" : `当前仅统计 ${source}`} · 共{" "}
+        非空计,同类错误合并展示。{source === "" ? "" : `当前仅统计 ${source} · `}
+        {windowPreset === "all" ? "当前为数据库累计口径" : `时间范围 ${windowLabel}`} · 共{" "}
         {fmtInt(d.request_count)} 次请求。
       </p>
     </div>

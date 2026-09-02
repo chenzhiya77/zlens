@@ -18,6 +18,7 @@ from zlens.sources.models import (
     Overview,
     ProjectModelUsage,
     SourceRef,
+    TimeWindow,
 )
 
 
@@ -136,17 +137,17 @@ class MultiSource:
         rows = [row for a in self._active_or_raise() for row in a.usage_by_project_model()]
         return sorted(rows, key=lambda p: (p.directory, -p.total_tokens))
 
-    def latency_samples(self) -> tuple[list[int], list[int]]:
+    def latency_samples(self, window: TimeWindow | None = None) -> tuple[list[int], list[int]]:
         durations: list[int] = []
         ttfts: list[int] = []
         for adapter in self._active_or_raise():
-            d, t = adapter.latency_samples()
+            d, t = adapter.latency_samples(window)
             durations.extend(d)
             ttfts.extend(t)
         return sorted(durations), sorted(ttfts)
 
-    def health_summary(self) -> HealthReport:
-        parts = [a.health_summary() for a in self._active_or_raise()]
+    def health_summary(self, window: TimeWindow | None = None) -> HealthReport:
+        parts = [a.health_summary(window) for a in self._active_or_raise()]
         errors = [e for p in parts for e in p.errors]
         return HealthReport(
             request_count=sum(p.request_count for p in parts),

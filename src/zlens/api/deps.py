@@ -1,11 +1,11 @@
 """Request-scoped access to singletons assembled by the app factory."""
 
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import HTTPException, Query, Request
 
 from zlens.core.config import Settings
-from zlens.sources.models import DateWindow, SortColumn, SortOrder
+from zlens.sources.models import DateWindow, SortColumn, SortOrder, TimeWindow
 from zlens.sources.multi import MultiSource
 
 
@@ -47,3 +47,24 @@ def get_window(
     if start is None and end is None:
         return None
     return DateWindow(start=start, end=end)
+
+
+def get_time_window(
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+) -> TimeWindow | None:
+    """Half-open instant window [since, until) for the runtime-quality endpoints;
+    None = 全量.
+
+    Only absolute ISO datetimes are accepted (naive = local time, the app's only
+    clock); a relative "近 1 小时" is the frontend's to translate. Half-open, so
+    a date-level custom range maps to [day 00:00, day+1 00:00) exactly.
+    """
+    if since is not None and until is not None and since >= until:
+        raise HTTPException(
+            status_code=422,
+            detail=f"invalid time window: since ({since}) is not before until ({until})",
+        )
+    if since is None and until is None:
+        return None
+    return TimeWindow(since=since, until=until)

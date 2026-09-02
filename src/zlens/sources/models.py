@@ -51,6 +51,39 @@ class DateWindow:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class TimeWindow:
+    """Half-open instant window [since, until) for the runtime-quality endpoints
+    (T27); a None bound is unbounded.
+
+    Unlike DateWindow this is hour-level and closed-open on purpose: a date-level
+    custom range maps to [day 00:00, day+1 00:00) without fabricating a
+    23:59:59.999 bound. Naive datetimes are local time — the app's only clock.
+    The API accepts only absolute instants; a relative "近 1 小时" is the
+    frontend's to translate (same split as DateWindow), and it re-translates on
+    every fetch so a monitoring preset slides with now instead of pinning to the
+    moment it was picked.
+    """
+
+    since: datetime | None = None
+    until: datetime | None = None
+
+    def since_ms(self) -> int | None:
+        """Inclusive lower bound as UTC epoch ms (None = unbounded)."""
+        return int(self.since.timestamp() * 1000) if self.since is not None else None
+
+    def until_ms(self) -> int | None:
+        """Exclusive upper bound as UTC epoch ms (None = unbounded)."""
+        return int(self.until.timestamp() * 1000) if self.until is not None else None
+
+    def contains_ms(self, ms: int) -> bool:
+        """Membership for a UTC epoch-ms request timestamp."""
+        return not (
+            (self.since is not None and ms < self.since_ms())
+            or (self.until is not None and ms >= self.until_ms())
+        )
+
+
 class ModelUsageSummary(BaseModel):
     source: str = "zcode"
     provider_id: str

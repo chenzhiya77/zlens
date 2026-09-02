@@ -21,6 +21,7 @@ from zlens.sources.models import (
     ModelUsageSummary,
     Overview,
     ProjectModelUsage,
+    TimeWindow,
     model_key,
 )
 from zlens.sources.timeutil import ms_to_datetime, ms_to_local_day
@@ -243,12 +244,17 @@ class MinimaxSource:
             row.total_tokens += r.total
         return sorted(acc.values(), key=lambda p: (p.directory, -p.total_tokens))
 
-    def latency_samples(self) -> tuple[list[int], list[int]]:
+    def latency_samples(self, window: TimeWindow | None = None) -> tuple[list[int], list[int]]:
         return [], []  # upstream has no latency fields
 
-    def health_summary(self) -> HealthReport:
+    def health_summary(self, window: TimeWindow | None = None) -> HealthReport:
+        records = self._records()
+        if window is not None:
+            # Ledger rows load in bulk (T15), so the instant window prunes here —
+            # request_count is the only field minimax can window at all.
+            records = [r for r in records if window.contains_ms(r.started_at)]
         return HealthReport(
-            request_count=len(self._records()),
+            request_count=len(records),
             requests_with_retries=0,
             total_retries=0,
             cancelled_by_user=0,

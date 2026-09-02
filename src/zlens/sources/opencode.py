@@ -22,6 +22,7 @@ from zlens.sources.models import (
     ModelUsageSummary,
     Overview,
     ProjectModelUsage,
+    TimeWindow,
     model_key,
 )
 from zlens.sources.timeutil import ms_to_datetime, ms_to_local_day
@@ -259,17 +260,23 @@ class OpencodeSource:
             self._add_usage(row, record)
         return sorted(acc.values(), key=lambda row: (row.directory, -row.total_tokens))
 
-    def latency_samples(self) -> tuple[list[int], list[int]]:
+    def latency_samples(self, window: TimeWindow | None = None) -> tuple[list[int], list[int]]:
+        records = self._records()
+        if window is not None:
+            records = [r for r in records if window.contains_ms(r.started_at)]
         durations = sorted(
             record.completed_at - record.started_at
-            for record in self._records()
+            for record in records
             if record.completed_at is not None and record.completed_at >= record.started_at
         )
         return durations, []
 
-    def health_summary(self) -> HealthReport:
+    def health_summary(self, window: TimeWindow | None = None) -> HealthReport:
+        records = self._records()
+        if window is not None:
+            records = [r for r in records if window.contains_ms(r.started_at)]
         return HealthReport(
-            request_count=len(self._records()),
+            request_count=len(records),
             requests_with_retries=0,
             total_retries=0,
             cancelled_by_user=0,

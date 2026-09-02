@@ -1,7 +1,7 @@
 # T27 — 运行质量页时间范围窗口(近 1 小时 / 24 小时 / 7 天 / 全部 / 自定义)
 
 **Blocked by:** None —— `/api/performance`、`/api/health` 已有 `?source=`(T18/T26),缺的只是时间窗口。
-**Status:** in progress
+**Status:** done (2026-09-02)
 
 ## User story
 
@@ -37,14 +37,14 @@
 
 ## Acceptance criteria
 
-- [ ] seg 五项可切换;performance / health(含分源对比卡)请求带 `since`/`until`,
+- [x] seg 五项可切换;performance / health(含分源对比卡)请求带 `since`/`until`,
       全部卡片由后端按窗口重算;「全部」不带窗口参数、行为与 T26 完全一致
-- [ ] 半开边界:恰在 `since` 的请求计入,恰在 `until` 的不计入(离线断言)
-- [ ] `since > until` → 422;畸形 datetime 由 FastAPI 422
-- [ ] 三个适配器各有离线窗口用例(窗口内/外/边界);`make check` 全绿
-- [ ] live 三源冒烟:近 24 小时下分源对比卡合计 = 健康结论栏请求数
-- [ ] URL 持久化成立;custom 预填合法区间
-- [ ] README / CHANGELOG 同步
+- [x] 半开边界:恰在 `since` 的请求计入,恰在 `until` 的不计入(离线断言)
+- [x] `since > until` → 422;畸形 datetime 由 FastAPI 422
+- [x] 三个适配器各有离线窗口用例(窗口内/外/边界);`make check` 全绿
+- [x] live 三源冒烟:近 24 小时下分源对比卡合计 = 健康结论栏请求数
+- [x] URL 持久化成立;custom 预填合法区间
+- [x] README / CHANGELOG 同步
 
 ## Out of scope
 

@@ -45,6 +45,9 @@ export interface ViewQuery {
   source?: string;
   start?: string;
   end?: string;
+  /** 运行质量页的时刻窗口(T27):半开 [since, until),本地时间 naive ISO。 */
+  since?: string;
+  until?: string;
   sort?: string;
   order?: string;
   granularity?: string;
