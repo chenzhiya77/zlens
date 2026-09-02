@@ -1,6 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
+import DateRangePopover from "../components/DateRangePopover";
 import Segmented from "../components/Segmented";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/states";
 import {
@@ -370,24 +371,13 @@ export default function Runtime() {
           {/* 时间范围(T27):预设是滚动时长,刷新按当前时刻重新翻译;
               自定义是日期级,半开换算在 resolveRuntimeWindow 里。 */}
           <Segmented value={windowPreset} options={WINDOW_OPTIONS} onChange={switchWindow} />
-          {/* 自定义区间悬浮面板(T27 反馈):绝对定位挂在控制行下缘,弹出/收起
-              不改变页面高度,下方内容零位移;选中「自定义」期间保持展开。 */}
           {windowPreset === "custom" && (
-            <div className="absolute right-0 top-full z-20 mt-2 flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-500 shadow-xl">
-              <input
-                type="date"
-                value={customStart ?? ""}
-                onChange={(e) => setParams({ start: e.target.value })}
-                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-              />
-              <span>→</span>
-              <input
-                type="date"
-                value={customEnd ?? ""}
-                onChange={(e) => setParams({ end: e.target.value })}
-                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-              />
-            </div>
+            <DateRangePopover
+              start={customStart}
+              end={customEnd}
+              onStart={(value) => setParams({ start: value })}
+              onEnd={(value) => setParams({ end: value })}
+            />
           )}
         </div>
       </header>

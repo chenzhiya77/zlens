@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import DateRangePopover from "../components/DateRangePopover";
 import EChart from "../components/EChart";
 import ModelTable from "../components/ModelTable";
 import Segmented from "../components/Segmented";
@@ -259,24 +260,16 @@ export default function Overview() {
             <span className="mx-2 text-zinc-700">·</span>统计生成于 {formatDateTime(m.generated_at)}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        {/* 自定义区间是悬浮面板(同运行质量页):挂在锚点下缘,弹出/收起零位移。 */}
+        <div className="relative">
           <Segmented value={windowPreset} options={WINDOW_OPTIONS} onChange={switchWindow} />
           {windowPreset === "custom" && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <input
-                type="date"
-                value={customStart ?? ""}
-                onChange={(e) => setParams({ start: e.target.value })}
-                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-              />
-              <span>→</span>
-              <input
-                type="date"
-                value={customEnd ?? ""}
-                onChange={(e) => setParams({ end: e.target.value })}
-                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-              />
-            </div>
+            <DateRangePopover
+              start={customStart}
+              end={customEnd}
+              onStart={(value) => setParams({ start: value })}
+              onEnd={(value) => setParams({ end: value })}
+            />
           )}
         </div>
       </header>
