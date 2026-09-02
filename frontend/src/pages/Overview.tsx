@@ -8,7 +8,7 @@ import ModelTable from "../components/ModelTable";
 import Segmented from "../components/Segmented";
 import SourceSelect from "../components/SourceSelect";
 import { ErrorBlock, LoadingBlock } from "../components/states";
-import { aliasKey, displayName, getAliases, setAlias } from "../lib/alias";
+import { getAliases, setAlias } from "../lib/alias";
 import {
   fetchMeta,
   fetchOverview,
@@ -231,13 +231,6 @@ export default function Overview() {
       })
     : o.by_model;
 
-  // 未计价提醒只列真正阻断总额的渠道:0 token 的未计价渠道(如一次失败的探路
-  // 请求)乘任何单价都是 ¥0,不藏任何钱,不该把可算的总额打成「未计价」。
-  // 全量未计价清单仍在 meta.unpriced_models,供价格表页播种补价行。
-  const blockingUnpriced = o.by_model.filter(
-    (row) => row.estimated_cost === null && row.total_tokens > 0,
-  );
-
   const exportHref = `/api/export${viewQueryString(viewQuery)}`;
   const hitRate = o.cache_hit_rate;
   const costDelta = o.delta?.estimated_cost.change_rate;
@@ -307,29 +300,6 @@ export default function Overview() {
           <EChart option={chartOption} height={108} />
         </div>
       </section>
-
-      {/* 未计价渠道提醒(D6):挂在 Hero 正下方,先解释成本列为什么有空。
-          只列有用量且未计价的渠道(与后端合计门控同一口径),0 token 的不计入。 */}
-      {blockingUnpriced.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-5 py-3">
-          <p className="text-sm text-zinc-400">
-            未计价渠道(价格表中没有,仅显示 token):
-            {blockingUnpriced.map((row) => {
-              const key = aliasKey(row.source, row.provider_id, row.model_id);
-              return (
-                <span
-                  key={key}
-                  title={key}
-                  className="ml-2 inline-flex items-center gap-1.5 rounded bg-zinc-800 px-2 py-0.5 font-mono text-xs text-zinc-300"
-                >
-                  <span className="text-[10px] text-zinc-500">{row.source}</span>
-                  {displayName(aliases, row.source, row.provider_id, row.model_id)}
-                </span>
-              );
-            })}
-          </p>
-        </div>
-      )}
 
       {/* 5 张 KPI 卡按容器宽度分档:≥1100px 一行五张 → 3+2 → 2 列。断点只决定列数,
           卡内 label 与辅助行可换行,所以任何一档都不会把文字挤出卡片。 */}
