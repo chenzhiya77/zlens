@@ -333,8 +333,8 @@ export default function Overview() {
         </div>
       )}
 
-      {/* 5 张 KPI 卡按容器宽度分档:≥1100px 一行五张 → 3+2 → 2 列。token 卡的辅助行
-          放未缩写的原始数;请求卡与缓存卡挂环比/命中率。 */}
+      {/* 5 张 KPI 卡按容器宽度分档:≥1100px 一行五张 → 3+2 → 2 列。断点只决定列数,
+          卡内 label 与辅助行可换行,所以任何一档都不会把文字挤出卡片。 */}
       <div className="grid grid-cols-5 gap-4 @max-[1100px]:grid-cols-3 @max-[640px]:grid-cols-2">
         <KpiCard
           label="总请求次数"
@@ -342,7 +342,8 @@ export default function Overview() {
           sub={<DeltaBadge rate={requestDelta} upIsGood />}
         />
         <KpiCard
-          label="累计 Token (输入+输出+缓存)"
+          label="累计 Token"
+          hint="输入 + 输出 + 缓存三类累计"
           value={formatTokens(o.total_tokens)}
           sub={<span>{`${o.total_tokens.toLocaleString("zh-CN")} tokens`}</span>}
         />
@@ -350,8 +351,8 @@ export default function Overview() {
           label="缓存读 Token"
           value={formatTokens(o.cache_read_tokens)}
           sub={
-            /* 辅助行只放命中率(设计稿 2:37=#10b981 绿色):带原始 token 数会
-               超出卡片宽度;大数已由卡面 value 呈现,不重复。 */
+            /* 辅助行只放命中率(设计稿 2:37=#10b981 绿色):原始 token 数与大数
+               重复,卡面 value 已经呈现过。 */
             hitRate === null || hitRate === undefined ? null : (
               <span className="font-medium text-emerald-500">
                 {`缓存命中率 ${(hitRate * 100).toFixed(1)}%(按 token 计)`}
@@ -461,20 +462,26 @@ export default function Overview() {
 /** Hero 下的一张 KPI 卡:标签在上、大数字居中、辅助行(原始 token 数/环比/命中率)在底。 */
 function KpiCard({
   label,
+  hint,
   value,
   sub,
 }: {
   label: string;
+  hint?: string;
   value: string;
   sub?: ReactNode;
 }) {
+  /* value 是唯一必须单行的(大数字断行比溢出更难读);label 与 sub 可换行,
+     因为 grid 轨道是 minmax(0,1fr),窄容器下只有让文字让步才不撒出卡片。 */
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-4">
-      <p className="whitespace-nowrap text-xs text-zinc-500">{label}</p>
+      <p className="text-xs text-zinc-500" title={hint}>
+        {label}
+      </p>
       <p className="mt-2 whitespace-nowrap text-3xl font-semibold tracking-tight tabular-nums">
         {value}
       </p>
-      {sub && <p className="mt-1 whitespace-nowrap text-xs text-zinc-500">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-zinc-500">{sub}</p>}
     </div>
   );
 }

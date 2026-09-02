@@ -155,6 +155,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   只展示 token),敲 0 才是「按量免费」;唯一例外是只填了买断额的行——买断支出要从存行汇总,
   该行仍落库、单价档以 0 落线。表格按「已定价 / 待补价(默认折叠,按 token 降序)/ 旧格式键」
   分组,摘要行带合计;已落库却四档全 0 的行由迁移条标出,一键改回未定价(带买断额的行保留)。
+- 总览 KPI 卡窄档不再溢出:五卡网格的断点只决定列数,label 与辅助行由 `nowrap` 改为允许
+  换行——窄容器下让文字让步,而不是撒出卡片;token 卡标签缩短为「累计 Token」,
+  「输入 + 输出 + 缓存」的口径挪进悬停提示。
 - 截图识别不再被思考模型拖超时:DashScope 上 qwen 系思考模型默认边读价格表边写推理链
   (实测 10 行表 17s,贴着 20 秒快速失败线,真实截图一越线前端就报
   `The read operation timed out`)。现在 VLM 请求带 `enable_thinking: false`——提取是感知
