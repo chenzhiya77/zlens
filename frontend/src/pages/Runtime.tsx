@@ -317,7 +317,13 @@ export default function Runtime() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">运行质量</h1>
+          {/* 刷新节奏贴着页名(T27 反馈):它是页级属性,不是切换控件。 */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold tracking-tight">运行质量</h1>
+            <span className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-500">
+              自动刷新 · 5 分钟
+            </span>
+          </div>
           <p className="mt-1 text-xs text-zinc-500">
             {windowLabel} · {source === "" ? "数据库共" : `${source} 共`}{" "}
             {fmtInt(d.request_count)} 次模型请求
@@ -364,28 +370,28 @@ export default function Runtime() {
           {/* 时间范围(T27):预设是滚动时长,刷新按当前时刻重新翻译;
               自定义是日期级,半开换算在 resolveRuntimeWindow 里。 */}
           <Segmented value={windowPreset} options={WINDOW_OPTIONS} onChange={switchWindow} />
-          {windowPreset === "custom" && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <input
-                type="date"
-                value={customStart ?? ""}
-                onChange={(e) => setParams({ start: e.target.value })}
-                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-              />
-              <span>→</span>
-              <input
-                type="date"
-                value={customEnd ?? ""}
-                onChange={(e) => setParams({ end: e.target.value })}
-                className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
-              />
-            </div>
-          )}
-          <span className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-500">
-            自动刷新 · 5 分钟
-          </span>
         </div>
       </header>
+
+      {/* 自定义区间单独一行(T27 反馈):内联在控制行里会随弹出手行挤压/回流,
+          放到下方独立行,控制行宽度恒定;右对齐保持在切换控件的正下方。 */}
+      {windowPreset === "custom" && (
+        <div className="flex items-center justify-end gap-2 text-xs text-zinc-500">
+          <input
+            type="date"
+            value={customStart ?? ""}
+            onChange={(e) => setParams({ start: e.target.value })}
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+          />
+          <span>→</span>
+          <input
+            type="date"
+            value={customEnd ?? ""}
+            onChange={(e) => setParams({ end: e.target.value })}
+            className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+          />
+        </div>
+      )}
 
       {/* 健康结论栏:状态点 + 三个派生比率(纯计数除法,前端算安全)。 */}
       <section className="flex flex-wrap items-center justify-between gap-x-10 gap-y-4 rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-5">
