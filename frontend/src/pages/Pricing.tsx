@@ -86,6 +86,16 @@ export default function Pricing() {
   // 待补价 is the bulk of the table and carries no numbers; it starts folded so the
   // page opens on the channels that already have a price.
   const [showUnpriced, setShowUnpriced] = useState(false);
+  // 视图筛选(画布④′):全部 = 分组队列原样;已定价 / 待补价 = 只渲染该组。
+  const [viewFilter, setViewFilter] = useState<"all" | "priced" | "unpriced">("all");
+  // 规则说明弹层(画布⑦):文字墙收进 ? 入口,一条规则不删。
+  const [rulesOpen, setRulesOpen] = useState(false);
+  // 脏计数快照(画布⑥):上次装载 / 保存成功时的 fx 与逐行值;保存按钮的
+  // 「N 处未保存改动」由它与当前编辑态 diff 得出,替代「改完请保存」教学句。
+  const [savedState, setSavedState] = useState<{ fx: string; rows: Record<string, EditableRow> }>({
+    fx: "",
+    rows: {},
+  });
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
@@ -196,6 +206,7 @@ export default function Pricing() {
     }
     setRows(merged);
     setFx(tableQuery.data.fx_usd_cny?.toString() ?? "");
+    setSavedState({ fx: tableQuery.data.fx_usd_cny?.toString() ?? "", rows: merged });
   }, [tableQuery.data, metaQuery.data]);
 
   // A pasted screenshot only ever targets the armed row: click that row's paste
@@ -246,6 +257,7 @@ export default function Pricing() {
     onSuccess: () => {
       setNotice("价格表已保存，成本已按新价格重算");
       setError(null);
+      setSavedState({ fx, rows: rowsRef.current });
       void queryClient.invalidateQueries();
     },
   });
@@ -475,30 +487,72 @@ export default function Pricing() {
     );
   };
 
+  // ⑥ 脏计数:与快照逐行比较,行键的增 / 删 / 改各算一处,fx 变更单独算一处。
+  // 行对象编辑时总是整体替换,逐行 JSON 比较即逐字段比较,与键序无关。
+  const dirtyCount = (() => {
+    let count = 0;
+    const keys = new Set([...Object.keys(rows), ...Object.keys(savedState.rows)]);
+    for (const key of keys) {
+      if (JSON.stringify(rows[key]) !== JSON.stringify(savedState.rows[key])) count += 1;
+    }
+    if (fx !== savedState.fx) count += 1;
+    return count;
+  })();
+
   return (
     <div className="space-y-4">
-      <p className="text-xs text-zinc-500">
-        价格基准：<span className="text-zinc-300">人民币 ¥ / 1M tokens</span>
-        （应用内只存人民币，行上不标币种）。一行一个渠道：同一个模型经不同渠道提供时价格
-        可以不同，互不合并。<span className="text-zinc-300">四档全留空 = 未定价</span>
-        ，该渠道只显示 token、不折算金额；用到的渠道都有价后总览总额才会出现。两笔钱分开记：
-        <span className="text-zinc-300">现总价</span>
-        是按已保存单价 × 该渠道用量算出的消耗（与总览同源，改完单价请保存才会刷新）；
-        <span className="text-zinc-300">买断价 ¥</span>
-        是你为套餐一次性付过的钱，不进按量计算、只汇总成总览的「买断支出」，两者永不相加。
-        <span className="mx-2 text-zinc-700">|</span>
-        <span className="text-zinc-400">
-          美元价在录入时就折成人民币：识别到截图上是 $ 会按上方「1 美元 = ? 人民币」折算后再
-          预填（汇率没填则拒绝预填，不替你猜市场价），截图没写币种就按人民币原样填、不乘任何汇率。
-          手工抄的美元价请自己换算成人民币再填——zlens 认不出你敲的数字是美元还是人民币，所以不做
-          行内折算，免得把本来就是人民币的行乘一遍汇率。每个渠道一行一个识别窗口：点击
-          该行的「粘贴截图识别」，再在本页 Ctrl/Cmd+V 粘贴
-          <em className="not-italic text-zinc-300">该渠道</em>的单价截图，识别结果只预填这一行、
-          互不影响（请逐项核对后保存）。渠道行由用量自动列出，无需手工新建；行内只显示名字
-          （有别名用别名），同名渠道去总览「别名」列起名区分，悬停行名可看完整
-          source|provider_id|model_id 键。
-        </span>
-      </p>
+      {/* 页头(画布⑦):一行摘要 + ? 弹层。界面已表达的不变量不再用文字墙复述,
+          但弹层完整收纳——规则一条不删,README / AGENTS 仍是事实源。 */}
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">价格表</h1>
+          <p className="mt-1 text-xs text-zinc-500">
+            人民币 ¥ / 1M tokens · 一行一个渠道 ·{" "}
+            <span className="text-zinc-300">四档全留空 = 未定价</span> · 用到的渠道都有价后总览总额
+            才会出现
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="计价规则说明"
+          aria-expanded={rulesOpen}
+          onClick={() => setRulesOpen((cur) => !cur)}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-800 text-xs text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+        >
+          ?
+        </button>
+        {rulesOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setRulesOpen(false)} />
+            <div className="absolute right-0 top-full z-20 mt-2 w-[560px] space-y-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-xs leading-relaxed text-zinc-500 shadow-xl">
+              <p>
+                <span className="font-medium text-zinc-300">计价。</span>
+                价格基准:人民币 ¥ / 1M tokens(应用内只存人民币,行上不标币种)。一行一个渠道:
+                同一个模型经不同渠道提供时价格可以不同,互不合并。四档全留空 = 未定价,该渠道只显示
+                token、不折算金额;敲 0 才是「按量免费」。两笔钱分开记:现总价 = 已保存单价 ×
+                该渠道用量(与总览同源,保存后刷新);买断价是你为套餐一次性付过的钱,不进按量计算、
+                只汇总成总览的「买断支出」,两者永不相加。
+              </p>
+              <p>
+                <span className="font-medium text-zinc-300">美元与汇率。</span>
+                美元价在录入时折成人民币:识别到截图上是 $ 会按「1 美元 = ? 人民币」折算后再预填
+                (汇率没填则拒绝预填,不替你猜市场价);截图没写币种就按人民币原样填、不乘任何汇率。
+                手工抄的美元价请自己换算成人民币再填——zlens 认不出你敲的数字是美元还是人民币,
+                所以不做行内折算,免得把本来就是人民币的行乘一遍汇率。汇率只在录入期使用,不参与
+                成本计算。
+              </p>
+              <p>
+                <span className="font-medium text-zinc-300">识别与渠道行。</span>
+                每个渠道一行一个识别窗口:点击该行的「粘贴截图识别」,再在本页 Ctrl/Cmd+V 粘贴
+                <em className="not-italic text-zinc-300">该渠道</em>的单价截图,识别结果只预填这一行、
+                互不影响(请逐项核对后保存)。渠道行由用量自动列出,无需手工新建;行内只显示名字
+                (有别名用别名),同名渠道去总览「别名」列起名区分,悬停行名可看完整
+                source|provider_id|model_id 键。
+              </p>
+            </div>
+          </>
+        )}
+      </div>
 
       {zeroPricedKeys.length > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
@@ -521,22 +575,49 @@ export default function Pricing() {
         </div>
       )}
 
-      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 py-5">
-        <div className="mb-4 flex items-center gap-2 px-5 text-xs text-zinc-400">
-          <label htmlFor="fx">汇率 1 美元 =</label>
-          <input
-            id="fx"
-            type="number"
-            step="any"
-            min="0"
-            value={fx}
-            onChange={(e) => setFx(e.target.value)}
-            placeholder="未设置"
-            className="w-24 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200"
-          />
-          <span className="text-zinc-500">
-            人民币；只用来折算识别到的美元截图，不参与成本计算
-          </span>
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 pt-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-5 text-xs text-zinc-400">
+          <div className="flex items-center gap-2">
+            <label htmlFor="fx">汇率 1 美元 =</label>
+            <input
+              id="fx"
+              type="number"
+              step="any"
+              min="0"
+              value={fx}
+              onChange={(e) => setFx(e.target.value)}
+              placeholder="未设置"
+              className="w-24 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200"
+            />
+            <span className="text-zinc-500">
+              人民币；只用来折算识别到的美元截图，不参与成本计算
+            </span>
+          </div>
+          {/* 视图筛选(画布④′):计数与分组头一致;旧格式键归入待补价——它们同样
+              等着人处理。筛选只决定渲染哪些组,不碰任何数据。 */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-zinc-600">视图</span>
+            {(
+              [
+                ["all", `全部 ${pricedRows.length + unpricedRows.length + legacyRows.length}`],
+                ["priced", `已定价 ${pricedRows.length}`],
+                ["unpriced", `待补价 ${unpricedRows.length + legacyRows.length}`],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setViewFilter(key)}
+                className={`rounded-md border px-2.5 py-1 transition-colors ${
+                  viewFilter === key
+                    ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                    : "border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* 卡片宽度不再被表格顶穿:表格在自己的壳里横滚,列宽固定(table-fixed),
@@ -582,57 +663,91 @@ export default function Pricing() {
               </tr>
             </thead>
             <tbody>
-              {pricedRows.length > 0 &&
+              {viewFilter !== "unpriced" &&
+                pricedRows.length > 0 &&
                 groupRow("已定价", `${pricedRows.length} 个渠道 · 合计 ${formatCost(pricedTotal)}`)}
-              {pricedRows.map(renderRow)}
-              {unpricedRows.length > 0 &&
+              {viewFilter !== "unpriced" && pricedRows.map(renderRow)}
+              {viewFilter !== "priced" &&
+                unpricedRows.length > 0 &&
                 groupRow(
                   "待补价",
                   `${unpricedRows.length} 个渠道未定价 · 合计 ${formatTokens(unpricedTokens)} tokens 未折算${
-                    showUnpriced ? "" : " · 点击展开"
+                    viewFilter === "all" && !showUnpriced ? " · 点击展开" : ""
                   }`,
-                  () => setShowUnpriced((cur) => !cur),
-                  showUnpriced,
+                  viewFilter === "all" ? () => setShowUnpriced((cur) => !cur) : undefined,
+                  viewFilter !== "all",
                 )}
-              {showUnpriced && unpricedRows.map(renderRow)}
-              {legacyRows.length > 0 &&
+              {(viewFilter === "unpriced" || (viewFilter === "all" && showUnpriced)) &&
+                unpricedRows.map(renderRow)}
+              {viewFilter !== "priced" &&
+                legacyRows.length > 0 &&
                 groupRow("旧格式键", `${legacyRows.length} 行匹配不到渠道`)}
-              {legacyRows.map(renderRow)}
+              {viewFilter !== "priced" && legacyRows.map(renderRow)}
             </tbody>
           </table>
         </div>
 
-        <div className="mt-4 flex items-center gap-3 px-5">
-          <button
-            type="button"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || extracting}
-            className="rounded-md bg-sky-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50"
-          >
-            保存价格表
-          </button>
-          {legacyCount > 0 && (
+        {/* 底部操作条(画布⑤⑥):左「两笔钱」并排、永不相加,数字全部来自
+            /api/overview(未计价/未填如实显示,不重算);右保存带脏计数,
+            「改完单价请保存才会刷新」由「N 处未保存改动」状态替代。 */}
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-800/80 px-5 py-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs text-zinc-500">按量消耗</span>
+            <span className="text-sm font-medium tabular-nums text-zinc-200">
+              {usageQuery.data?.totals == null
+                ? "—"
+                : usageQuery.data.totals.estimated_cost === null
+                  ? "未计价"
+                  : formatCost(usageQuery.data.totals.estimated_cost)}
+            </span>
+            <span className="mx-1 h-4 w-px bg-zinc-800" />
+            <span className="text-xs text-zinc-500">买断支出</span>
+            <span className="text-sm font-medium tabular-nums text-zinc-200">
+              {usageQuery.data == null
+                ? "—"
+                : usageQuery.data.buyout_total === null
+                  ? "未填"
+                  : usageQuery.data.buyout_total === 0
+                    ? "¥0.00 · 免费套餐"
+                    : formatCost(usageQuery.data.buyout_total)}
+            </span>
+            <span className="text-[10px] text-zinc-600">两笔钱永不相加</span>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            {legacyCount > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setRows((prev) =>
+                    Object.fromEntries(Object.entries(prev).filter(([key]) => parseModelKey(key))),
+                  )
+                }
+                title="旧的价格表以裸 model_id 为键，匹配不到任何渠道；清除后保存即可只保留渠道行"
+                className="rounded-md border border-amber-500/50 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-500/10"
+              >
+                清除 {legacyCount} 行旧格式键
+              </button>
+            )}
+            {extracting && <span className="text-xs text-zinc-500">正在调用 VLM 识别截图…</span>}
+            {saveMutation.isError && (
+              <span className="text-xs text-rose-400">
+                {saveMutation.error instanceof Error ? saveMutation.error.message : "保存失败"}
+              </span>
+            )}
+            {error && <span className="text-xs text-rose-400">{error}</span>}
+            {notice && <span className="text-xs text-emerald-400">{notice}</span>}
+            {dirtyCount > 0 && (
+              <span className="text-xs text-amber-400">{dirtyCount} 处未保存改动</span>
+            )}
             <button
               type="button"
-              onClick={() =>
-                setRows((prev) =>
-                  Object.fromEntries(Object.entries(prev).filter(([key]) => parseModelKey(key))),
-                )
-              }
-              title="旧的价格表以裸 model_id 为键，匹配不到任何渠道；清除后保存即可只保留渠道行"
-              className="rounded-md border border-amber-500/50 px-3 py-1.5 text-xs text-amber-400 hover:bg-amber-500/10"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || extracting}
+              className="rounded-md bg-sky-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50"
             >
-              清除 {legacyCount} 行旧格式键
+              {dirtyCount > 0 ? `保存 ${dirtyCount} 处改动` : "保存价格表"}
             </button>
-          )}
-          {extracting && <span className="text-xs text-zinc-500">正在调用 VLM 识别截图…</span>}
-          {saveMutation.isError && (
-            <span className="text-xs text-rose-400">
-              {saveMutation.error instanceof Error ? saveMutation.error.message : "保存失败"}
-            </span>
-          )}
-          {error && <span className="text-xs text-rose-400">{error}</span>}
-          {notice && <span className="text-xs text-emerald-400">{notice}</span>}
+          </div>
         </div>
       </div>
     </div>
