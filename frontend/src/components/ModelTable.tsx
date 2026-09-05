@@ -162,43 +162,73 @@ export default function ModelTable({
     });
 
   const groupHeader = (source: string, rows: ModelUsageSummary[], index: number) => {
-    const credits = rows.reduce((s, r) => s + (r.credits ?? 0), 0);
-    const cost = rows.reduce((s, r) => s + (r.estimated_cost ?? 0), 0);
     const collapsed = collapsedSources.has(source);
+    const sum = (pick: (r: ModelUsageSummary) => number) =>
+      rows.reduce((s, r) => s + pick(r), 0);
+    const creditRows = rows.filter((r) => r.credits !== null);
+    // 分组头是「组级合计行」:数字与数据列逐列对齐(同合计行),左格是来源与折叠开关。
+    // 组内数字只在本组内合计——积分单位 per-source,不跨组相加。
     return (
-      /* 分组头必须是「带」不是「行」:整行压暗加粗、来源色点 + 上边框强调,
-          与数据行一眼区分;组内数字只在本组内合计(积分不跨源)。 */
-      <tr key={`group:${source}`} className="border-y border-zinc-700 bg-zinc-800/90">
-        <td colSpan={labelSpan + SORTABLE_COLUMNS.length + 1} className="p-0">
-          <button
-            type="button"
-            onClick={() => toggleSource(source)}
-            title="点击折叠/展开该 agent 的明细;组内积分只在本组内合计(不同 agent 的积分单位不等价)"
-            className="sticky left-0 flex w-max max-w-full items-center gap-2.5 py-2 pl-4 text-left text-xs"
-          >
+      <tr
+        key={`group:${source}`}
+        onClick={() => toggleSource(source)}
+        title={collapsed ? "点击展开该 agent 的明细" : "点击折叠该 agent 的明细"}
+        className={`cursor-pointer border-y border-zinc-700 bg-zinc-800/90 text-xs ${
+          collapsed ? "" : "border-b-zinc-700"
+        }`}
+      >
+        <td colSpan={labelSpan} className="py-2 pl-4 pr-4">
+          <span className="flex items-center gap-2">
             <span
-              className="h-2.5 w-2.5 rounded-full"
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: modelColor(index) }}
             />
             <span className="font-semibold text-zinc-100">{source}</span>
             <span className="text-zinc-500">{rows.length} 个模型</span>
-            <span className="text-zinc-500">
-              实扣{" "}
-              <span className="tabular-nums text-zinc-200">{formatCredits(credits)}</span>
-            </span>
-            <span className="text-zinc-500">
-              成本{" "}
-              <span
-                className="tabular-nums text-zinc-200"
-                title="组内成本合计(未计价渠道按 ¥0 计入，与总览同口径)"
-              >
-                {formatCost(cost)}
-              </span>
-            </span>
             <span className="font-mono text-[10px] text-zinc-600">
-              {collapsed ? "已折叠 · 点击展开" : "点击折叠"}
+              {collapsed ? "▸ 展开" : "▾ 折叠"}
             </span>
-          </button>
+          </span>
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums text-zinc-300">
+          {sum((r) => r.request_count).toLocaleString("zh-CN")}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums text-zinc-300">
+          {formatTokens(sum((r) => r.input_tokens))}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums text-zinc-300">
+          {formatTokens(sum((r) => r.output_tokens))}
+        </td>
+        <td
+          className={`py-2 pr-4 text-right tabular-nums ${
+            sum((r) => r.cache_creation_tokens) === 0 ? "text-zinc-600" : "text-zinc-300"
+          }`}
+        >
+          {formatTokens(sum((r) => r.cache_creation_tokens))}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums text-zinc-300">
+          {formatTokens(sum((r) => r.cache_read_tokens))}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums font-medium text-zinc-200">
+          {formatTokens(sum((r) => r.total_tokens))}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums">
+          <BuyoutText
+            amount={
+              rows.some((r) => buyoutByKey.get(aliasKey(r.source, r.provider_id, r.model_id)) !== null)
+                ? sum(
+                    (r) =>
+                      buyoutByKey.get(aliasKey(r.source, r.provider_id, r.model_id)) ?? 0,
+                  )
+                : null
+            }
+          />
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums">
+          <CostText cost={sum((r) => r.estimated_cost ?? 0)} />
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums">
+          <CreditsText credits={creditRows.length ? sum((r) => r.credits ?? 0) : null} />
         </td>
       </tr>
     );

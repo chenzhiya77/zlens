@@ -17,7 +17,7 @@ import {
   type SortColumn,
   type ViewQuery,
 } from "../lib/api";
-import { formatDateTime, formatCost, formatCredits, formatTokens } from "../lib/format";
+import { formatDateTime, formatCost, formatTokens } from "../lib/format";
 import type { EChartsOption } from "echarts";
 
 // 视觉结构照 Ardot 设计稿 719793184410961「AI用量总览-优化版」(T23),交互接线为 T24:
@@ -349,49 +349,9 @@ export default function Overview() {
         />
       </div>
 
-      {/* 第三笔账卡片区(v3 T36 + 分源修正):积分是 per-source 单位——
-          不同 agent 的积分换算规则不同,数字不可跨源相加,所以每个上报积分的
-          来源一张卡;标价值是钱(逐行乘各自单价),跨来源可比。范围内没有积分
-          上报时整块不渲染——纯 token 用户看不到空卡片。 */}
-      {o.credits_reported && (
-        <section className="grid grid-cols-4 gap-4 @max-[1100px]:grid-cols-2">
-          {(o.credit_by_source ?? []).map((ledger) => (
-            <KpiCard
-              key={ledger.source}
-              label={`${ledger.source} · 实扣积分`}
-              hint="第三笔账:积分单位 per-source,不同 agent 的积分不可相加"
-              value={formatCredits(ledger.credits)}
-              sub={
-                <span>
-                  {ledger.original_credits === null
-                    ? "该来源未提供原价口径"
-                    : `原价 ${formatCredits(ledger.original_credits)} · 折扣 ${formatCredits(ledger.discount_credits)}`}
-                </span>
-              }
-            />
-          ))}
-          <KpiCard
-            label="积分标价值 (CNY)"
-            hint="按价格表「积分单价」折算;标价不是实付,与按量消耗、买断支出永不相加"
-            value={
-              o.credit_value_cny === null
-                ? "未录价"
-                : o.credit_value_cny.plan === null
-                  ? "未录套餐价"
-                  : formatCost(o.credit_value_cny.plan)
-            }
-            sub={
-              <span>
-                {o.credit_value_cny === null
-                  ? "请先在价格表录入「¥/积分」"
-                  : o.credit_value_cny.pack === null
-                    ? "加量包口径未录价(录入后分别显示)"
-                    : `加量包口径 ${formatCost(o.credit_value_cny.pack)}(plan/pack 并存,不取低)`}
-              </span>
-            }
-          />
-        </section>
-      )}
+      {/* 积分卡片区(v3 T36)按用户决定暂时移除:积分数字 per-source、放总览
+          KPI 行与两笔钱的语境不合。分源数据仍在 /api/overview 的
+          credit_by_source 与明细表的「积分」列里,找到合适的家后再挂回。 */}
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
