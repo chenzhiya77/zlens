@@ -122,7 +122,11 @@ class PriceTable(BaseModel):
                 or rate <= 0
             ):
                 continue
-            kept[key] = {"cny_per_credit": float(rate), "note": entry.get("note")}
+            note = entry.get("note")
+            kept[key] = {
+                "cny_per_credit": float(rate),
+                "note": note if isinstance(note, str) and note.strip() else None,
+            }
         return kept
 
     @classmethod

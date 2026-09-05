@@ -48,6 +48,11 @@ def put_pricing(
             raise HTTPException(422, detail=f"渠道「{key}」的买断价不能为负数")
     if table.fx_usd_cny is not None and table.fx_usd_cny <= 0:
         raise HTTPException(422, detail="fx_usd_cny 必须是正数（1 美元 = ? 人民币）")
+    if table.credit_prices and table.version < 2:
+        # credit_prices is the v2 shape: recording one upgrades the file in place
+        # (invalid entries were already dropped by the model's own sanitizer —
+        # a pricing typo degrades that entry, never the table or the request).
+        table = table.model_copy(update={"version": 2})
     settings.pricing_path.write_text(
         json.dumps(table.model_dump(), ensure_ascii=False, indent=2),
         encoding="utf-8",

@@ -81,6 +81,13 @@ export interface MetaInfo {
   last_request_at: string | null;
   generated_at: string;
   unpriced_models: string[];
+  /** Credit-reporting sources with neither basis priced (credit-side 待补价). */
+  unpriced_credits: string[];
+  /** Sources that report credits / tokens at all (adapter-declared traits). */
+  credit_reporting_sources: string[];
+  token_reporting_sources: string[];
+  /** Source caveat, e.g. Qoder CN's 30-day local retention sliding window. */
+  retention_hint: string | null;
 }
 
 export interface ModelUsageSummary {
@@ -237,10 +244,18 @@ export interface ModelPrice {
   buyout_amount: number | null;
 }
 
+/** ¥/credit list price for one source, keyed `source|basis` (plan | pack). */
+export interface CreditPrice {
+  cny_per_credit: number;
+  note: string | null;
+}
+
 export interface PriceTable {
   version: number;
   /** All prices are CNY (the app's money base). */
   models: Record<string, ModelPrice>;
+  /** Credit list prices (v2 shape); the third ledger's entry-side input. */
+  credit_prices: Record<string, CreditPrice>;
   /** Entry-time rate the pricing form folds $ prices with; never used in costing. */
   fx_usd_cny: number | null;
 }

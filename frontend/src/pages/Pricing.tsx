@@ -36,6 +36,33 @@ const EMPTY_ROW: EditableRow = {
   buyout_amount: null,
 };
 
+/** 积分单价的编辑态:`source|basis` 两段键 + ¥/积分。来源与口径可编辑、保存时合成键;
+ *  单价留空 = 未录,不落库(与渠道行的留空纪律同构)。note 是用户给自己留的换算依据。 */
+interface CreditRow {
+  source: string;
+  basis: "plan" | "pack";
+  rate: number | null;
+  note: string;
+}
+
+const CREDIT_BASES: Array<{ value: "plan" | "pack"; label: string }> = [
+  { value: "plan", label: "套餐内(plan)" },
+  { value: "pack", label: "加量包(pack)" },
+];
+
+const parseCreditRows = (
+  creditPrices: Record<string, { cny_per_credit: number; note: string | null }>,
+): CreditRow[] =>
+  Object.entries(creditPrices).map(([key, price]) => {
+    const cut = key.lastIndexOf("|");
+    return {
+      source: cut === -1 ? key : key.slice(0, cut),
+      basis: key.slice(cut + 1) === "pack" ? "pack" : "plan",
+      rate: price.cny_per_credit,
+      note: price.note ?? "",
+    };
+  });
+
 /** 填过任意一档(含 0)即已定价;四档全空 = 未定价,保存时不落库。 */
 const isPriced = (row: EditableRow) => PRICE_FIELDS.some((field) => row[field] !== null);
 
@@ -76,6 +103,7 @@ export default function Pricing() {
   const [aliases] = useState(() => getAliases());
 
   const [rows, setRows] = useState<Record<string, EditableRow>>({});
+  const [creditRows, setCreditRows] = useState<CreditRow[]>([]);
   const [fx, setFx] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -95,12 +123,15 @@ export default function Pricing() {
   const [hoverRow, setHoverRow] = useState<string | null>(null);
   // 脏计数快照(画布⑥):上次装载 / 保存成功时的 fx 与逐行值;保存按钮的
   // 「N 处未保存改动」由它与当前编辑态 diff 得出,替代「改完请保存」教学句。
-  const [savedState, setSavedState] = useState<{ fx: string; rows: Record<string, EditableRow> }>({
-    fx: "",
-    rows: {},
-  });
+  const [savedState, setSavedState] = useState<{
+    fx: string;
+    rows: Record<string, EditableRow>;
+    creditRows: CreditRow[];
+  }>({ fx: "", rows: {}, creditRows: [] });
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const creditRowsRef = useRef(creditRows);
+  creditRowsRef.current = creditRows;
 
   const fxValue = fx.trim() === "" || !Number.isFinite(Number(fx)) ? null : Number(fx);
 
@@ -209,7 +240,13 @@ export default function Pricing() {
     }
     setRows(merged);
     setFx(tableQuery.data.fx_usd_cny?.toString() ?? "");
-    setSavedState({ fx: tableQuery.data.fx_usd_cny?.toString() ?? "", rows: merged });
+    const creditParsed = parseCreditRows(tableQuery.data.credit_prices ?? {});
+    setCreditRows(creditParsed);
+    setSavedState({
+      fx: tableQuery.data.fx_usd_cny?.toString() ?? "",
+      rows: merged,
+      creditRows: creditParsed,
+    });
   }, [tableQuery.data, metaQuery.data]);
 
   // A pasted screenshot only ever targets the armed row: click that row's paste
@@ -243,10 +280,25 @@ export default function Pricing() {
     return () => window.removeEventListener("paste", onPaste);
   }, [pastingFor]);
 
+  // 积分单价合成 `source|basis` 键落库;来源空或单价留空的行不写(留空 = 未录)。
+  // 录入任一条即把文件升到 v2(credit_prices 是 v2 形状)。
+  const creditPricesOut = Object.fromEntries(
+    creditRows
+      .filter((row) => row.source.trim() !== "" && row.rate !== null)
+      .map((row) => [
+        `${row.source.trim()}|${row.basis}`,
+        {
+          cny_per_credit: row.rate!,
+          note: row.note.trim() === "" ? null : row.note.trim(),
+        },
+      ]),
+  );
+
   const saveMutation = useMutation({
     mutationFn: () =>
       savePricing({
-        version: tableQuery.data?.version ?? 1,
+        version:
+          Object.keys(creditPricesOut).length > 0 ? 2 : (tableQuery.data?.version ?? 1),
         fx_usd_cny: fxValue,
         models: Object.fromEntries(
           Object.entries(rows)
@@ -256,14 +308,24 @@ export default function Pricing() {
             )
             .map(([key, row]) => [key, toWire(row)]),
         ),
+        credit_prices: creditPricesOut,
       }),
     onSuccess: () => {
       setNotice("价格表已保存，成本已按新价格重算");
       setError(null);
-      setSavedState({ fx, rows: rowsRef.current });
+      setSavedState({ fx, rows: rowsRef.current, creditRows: creditRowsRef.current });
       void queryClient.invalidateQueries();
     },
   });
+
+  const addCredit = (source = "") =>
+    setCreditRows((prev) => [...prev, { source, basis: "plan", rate: null, note: "" }]);
+
+  const updateCredit = (index: number, patch: Partial<CreditRow>) =>
+    setCreditRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+
+  const removeCredit = (index: number) =>
+    setCreditRows((prev) => prev.filter((_, i) => i !== index));
 
   const update = (key: string, field: (typeof PRICE_FIELDS)[number], value: string) => {
     const num = Number(value);
@@ -518,8 +580,12 @@ export default function Pricing() {
       if (JSON.stringify(rows[key]) !== JSON.stringify(savedState.rows[key])) count += 1;
     }
     if (fx !== savedState.fx) count += 1;
+    if (JSON.stringify(creditRows) !== JSON.stringify(savedState.creditRows)) count += 1;
     return count;
   })();
+
+  // 上报积分但两种口径都没录价的来源:价格表的录入引导就冲着它们来。
+  const unpricedCreditSources = metaQuery.data?.unpriced_credits ?? [];
 
   return (
     <div className="space-y-4">
@@ -562,6 +628,14 @@ export default function Pricing() {
                 手工抄的美元价请自己换算成人民币再填——zlens 认不出你敲的数字是美元还是人民币,
                 所以不做行内折算,免得把本来就是人民币的行乘一遍汇率。汇率只在录入期使用,不参与
                 成本计算。
+              </p>
+              <p>
+                <span className="font-medium text-zinc-300">积分单价。</span>
+                积分计费来源(如 WorkBuddy、Qoder CN)按「¥/积分」录入,折出第三笔钱——
+                <em className="not-italic text-zinc-300">「标价值」</em>。两条口径并存分别显示:
+                套餐内(plan)= 订阅费 ÷ 月含积分;加量包(pack)= 包价 ÷ 含量。它们回答不同的问题,
+                不自动取低,应用也不代算(促销送积分的账只有你知道)。标价值不是实付,与按量消耗、
+                买断支出永不相加;未录价的来源只显示积分数,不出标价值。
               </p>
               <p>
                 <span className="font-medium text-zinc-300">识别与渠道行。</span>
@@ -771,6 +845,132 @@ export default function Pricing() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 积分单价(v3 T35):两段键 source|basis,与渠道三元组价格分块显示——
+          它折的是第三笔账「标价值」,不是模型单价,混进同一张表会被误读。 */}
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 pt-5">
+        <div className="flex flex-wrap items-start justify-between gap-2 px-5">
+          <div>
+            <h2 className="text-sm font-medium text-zinc-200">积分单价 ¥/积分</h2>
+            <p className="mt-1 max-w-3xl text-xs text-zinc-500">
+              积分计费来源(WorkBuddy / Qoder CN…)按官方标价折算:套餐内 = 订阅费 ÷
+              月含积分,加量包 = 包价 ÷ 含量;两条并存分别显示,应用不代算、不取低。
+              这是标价折算,不是实付。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => addCredit()}
+            className="shrink-0 rounded-md border border-zinc-700 px-3 py-1 text-xs text-zinc-300 hover:border-sky-500/70 hover:text-sky-400"
+          >
+            添加积分单价
+          </button>
+        </div>
+        {unpricedCreditSources.length > 0 && (
+          <div className="mx-5 mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+            <span className="text-amber-300">
+              上报积分但未录单价:{unpricedCreditSources.join("、")} —— 未录价时总览只显示积分数,不出「标价值」
+            </span>
+            {unpricedCreditSources.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => addCredit(s)}
+                className="shrink-0 rounded-md border border-amber-500/60 px-2 py-0.5 text-amber-300 hover:bg-amber-500/15"
+              >
+                + {s}
+              </button>
+            ))}
+          </div>
+        )}
+        {creditRows.length === 0 ? (
+          <p className="px-5 py-4 text-xs text-zinc-600">还没有积分单价录入。</p>
+        ) : (
+          <div className="overflow-x-auto px-5 pb-5 pt-3">
+            <table className="w-full min-w-[680px] text-sm">
+              <thead>
+                <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+                  <th className="w-40 py-2 pr-4 font-medium">来源</th>
+                  <th className="w-44 py-2 pr-4 font-medium">计价口径</th>
+                  <th className="w-36 py-2 pr-4 text-right font-medium">¥/积分</th>
+                  <th className="py-2 pr-4 font-medium">说明(如 ¥59/月 ÷ 2000)</th>
+                  <th className="w-16 py-2 pr-5 text-right font-medium">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {creditRows.map((row, index) => (
+                  <tr key={index} className="border-b border-zinc-800/60">
+                    <td className="py-2 pr-4">
+                      <input
+                        type="text"
+                        value={row.source}
+                        onChange={(e) => updateCredit(index, { source: e.target.value })}
+                        placeholder="如 workbuddy"
+                        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 font-mono text-xs text-zinc-200"
+                      />
+                    </td>
+                    <td className="py-2 pr-4">
+                      <select
+                        value={row.basis}
+                        onChange={(e) =>
+                          updateCredit(index, { basis: e.target.value as "plan" | "pack" })
+                        }
+                        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+                      >
+                        {CREDIT_BASES.map((b) => (
+                          <option key={b.value} value={b.value}>
+                            {b.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-2 pr-4 text-right">
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={row.rate ?? ""}
+                        onChange={(e) => {
+                          const num = Number(e.target.value);
+                          updateCredit(index, {
+                            rate:
+                              e.target.value.trim() === "" || !Number.isFinite(num)
+                                ? null
+                                : num,
+                          });
+                        }}
+                        placeholder="—"
+                        title="标价折算用的 ¥/积分;留空 = 未录,这一行不落库"
+                        className={`w-full rounded-md border bg-zinc-950 px-2 py-1 text-right text-xs tabular-nums text-zinc-200 ${
+                          row.rate === null ? "border-dashed border-zinc-700" : "border-zinc-800"
+                        }`}
+                      />
+                    </td>
+                    <td className="py-2 pr-4">
+                      <input
+                        type="text"
+                        value={row.note}
+                        onChange={(e) => updateCredit(index, { note: e.target.value })}
+                        placeholder="换算依据,选填"
+                        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs text-zinc-200"
+                      />
+                    </td>
+                    <td className="py-2 pr-5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => removeCredit(index)}
+                        className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                      >
+                        删除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
