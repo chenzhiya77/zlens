@@ -30,7 +30,9 @@ function Layout() {
 
   return (
     <div className="flex min-h-screen">
-      <nav className="flex w-52 shrink-0 flex-col border-r border-zinc-800/80 px-4 py-6">
+      {/* sticky + h-screen:文档滚动时菜单恒定占住视口左侧,右侧长内容再长
+          也不会把菜单卷走;底部说明借 mt-auto 一直钉在视口底部。 */}
+      <nav className="sticky top-0 flex h-screen w-52 shrink-0 flex-col border-r border-zinc-800/80 px-4 py-6">
         <div className="mb-8 px-2">
           <span className="text-xl font-semibold tracking-tight">zlens</span>
           <p className="mt-1 text-xs text-zinc-500">coding agent 用量透镜</p>
