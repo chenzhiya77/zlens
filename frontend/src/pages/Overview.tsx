@@ -105,6 +105,8 @@ export default function Overview() {
   const source = param("source", "");
   const sort = param("sort", "estimated_cost") as SortColumn;
   const order = param("order", "desc");
+  // 明细表的分组模式:按来源分组(默认)或全部平铺;进 URL 可分享/还原。
+  const group = param("group", "source") as "source" | "flat";
 
   const setParams = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams);
@@ -402,6 +404,16 @@ export default function Overview() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* 分组 / 平铺切换(v3 用户反馈):分组时每个 agent 一个可折叠色带,
+                平铺时不带分组头;两种模式共用同一套排序与搜索。 */}
+            <Segmented
+              value={group}
+              options={[
+                { key: "source", label: "按来源分组" },
+                { key: "flat", label: "全部平铺" },
+              ]}
+              onChange={(g) => setParams({ group: g === "source" ? null : g })}
+            />
             {/* 来源选择来自 T18 的 meta.sources;不可用来源在下拉里置灰并带原因。 */}
             <SourceSelect
               sources={m.sources ?? []}
@@ -436,7 +448,7 @@ export default function Overview() {
           modelCount={o.by_model.length}
           creditTotal={o.credit_total}
           buyoutTotal={o.buyout_total}
-          groupBySource
+          groupBySource={group === "source"}
         />
         {/* token 口径提示(T36):不报 token 的来源(如 Qoder CN)不计入合计,
             必须显式标注,禁止静默相加;它们的用量看「积分」列。 */}
