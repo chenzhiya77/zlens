@@ -57,6 +57,7 @@ def _client(make_db, rows, tmp_path, prices=None, raw=None, fx=None):
             minimax_sessions_dir=tmp_path / "minimax-missing",
             opencode_db_path=tmp_path / "opencode-missing.db",
             workbuddy_dir=tmp_path / "workbuddy-missing",
+            qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
         )
     )
     return TestClient(app)
@@ -207,6 +208,7 @@ def test_price_edit_takes_effect_without_restart(make_db, tmp_path):
                 minimax_sessions_dir=tmp_path / "minimax-missing",
                 opencode_db_path=tmp_path / "opencode-missing.db",
                 workbuddy_dir=tmp_path / "workbuddy-missing",
+                qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
             )
         )
     )

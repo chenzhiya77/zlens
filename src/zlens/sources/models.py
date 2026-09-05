@@ -291,6 +291,10 @@ class MetaInfo(BaseModel):
     credit_reporting_sources: list[str] = []
     token_reporting_sources: list[str] = []
     unpriced_credits: list[str] = []
+    # Source-provided caveat for the UI, e.g. Qoder CN's 30-day local retention
+    # (`.last-cleanup` marker): the local ledger is a sliding window the vendor
+    # truncates — shown as a hint, never silently ignored. Joined across parts.
+    retention_hint: str | None = None
 
 
 class DailyUsage(BaseModel):

@@ -23,7 +23,7 @@ zlens/
 │   └── plans/tickets/      # 实施票:每票一文件,含目标/边界/验收/阻塞边
 ├── src/zlens/              # 后端包(Python >=3.12,src layout)
 │   ├── core/               # config.py(配置)、cost.py(成本估算)、stats.py(分位数)
-│   ├── sources/            # base.py 协议 + zcode/minimax/opencode/workbuddy/multi 适配器,只读
+│   ├── sources/            # base.py 协议 + zcode/minimax/opencode/workbuddy/qoder_cn/multi 适配器,只读
 │   ├── api/                # FastAPI:create_app/routers 只读端点 + SPA 静态托管
 │   └── web/static_dist/    # 前端构建产物(gitignored,由 make build-web 生成)
 ├── tests/                  # pytest,扁平命名 test_<feature>.py;live marker 默认排除

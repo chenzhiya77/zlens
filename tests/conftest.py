@@ -219,7 +219,36 @@ def make_workbuddy(tmp_path):
 
 
 @pytest.fixture
-def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db, make_workbuddy):
+def make_qoder_cn(tmp_path):
+    """Factory: synthetic Qoder CN CLI root — main-session transcripts, optional
+    per-session subagent transcripts, optional .last-cleanup retention marker."""
+
+    def _make(sessions, last_cleanup=False):
+        root = tmp_path / "qoder-cn"
+        projects = root / "projects"
+        for spec in sessions:
+            cwd_dir = projects / spec["project_slug"]
+            cwd_dir.mkdir(parents=True, exist_ok=True)
+            lines = [json.dumps(record) for record in spec["records"]]
+            (cwd_dir / f"{spec['session_id']}.jsonl").write_text("\n".join(lines), encoding="utf-8")
+            for sub in spec.get("subagents", []):
+                sdir = cwd_dir / spec["session_id"] / "subagents"
+                sdir.mkdir(parents=True, exist_ok=True)
+                (sdir / sub["name"]).write_text(
+                    "\n".join(json.dumps(record) for record in sub["records"]),
+                    encoding="utf-8",
+                )
+        if last_cleanup:
+            (root / ".last-cleanup").write_text("{}", encoding="utf-8")
+        return root
+
+    return _make
+
+
+@pytest.fixture
+def make_settings(
+    tmp_path, make_db, make_minimax_sessions, make_opencode_db, make_workbuddy, make_qoder_cn
+):
     """Settings where only the explicitly built sources exist."""
 
     def _make(
@@ -230,6 +259,8 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db, ma
         opencode_sessions=(),
         workbuddy=None,
         workbuddy_usage=(),
+        qoder_cn=None,
+        qoder_cn_last_cleanup=False,
         pricing_path=None,
         config_json_path=None,
     ):
@@ -247,6 +278,11 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db, ma
                 make_workbuddy(workbuddy, workbuddy_usage)
                 if workbuddy
                 else tmp_path / "workbuddy-missing"
+            ),
+            qoder_cn_config_dir=(
+                make_qoder_cn(qoder_cn, qoder_cn_last_cleanup)
+                if qoder_cn
+                else tmp_path / "qoder-cn-missing"
             ),
             pricing_path=(pricing_path or tmp_path / "pricing.json"),
             config_json_path=(config_json_path or tmp_path / "zlens.config.json"),

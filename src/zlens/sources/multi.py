@@ -110,6 +110,8 @@ class MultiSource:
             # credits / tokens at all (an empty union = none does).
             credit_reporting_sources=sorted({s for m in metas for s in m.credit_reporting_sources}),
             token_reporting_sources=sorted({s for m in metas for s in m.token_reporting_sources}),
+            # Retention caveats ride along from whichever selected source has one.
+            retention_hint=("; ".join(hint for m in metas if (hint := m.retention_hint)) or None),
         )
 
     def overview(self, window: DateWindow | None = None) -> Overview:

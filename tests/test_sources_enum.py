@@ -37,7 +37,13 @@ def test_sources_list_includes_unavailable_with_reason(client_factory):
     body = client.get("/api/meta").json()
 
     ids = [s["id"] for s in body["sources"]]
-    assert ids == ["zcode", "minimax", "opencode", "workbuddy"]  # registered, not merely active
+    assert ids == [  # registered, not merely active
+        "zcode",
+        "minimax",
+        "opencode",
+        "workbuddy",
+        "qoder_cn",
+    ]
     by_id = {s["id"]: s for s in body["sources"]}
     assert by_id["zcode"]["available"] is True
     assert by_id["zcode"]["error"] is None
@@ -94,5 +100,11 @@ def test_enumeration_survives_source_selection_and_window(client_factory):
         "/api/meta", params={"source": "zcode", "start": "2026-01-01", "end": "2026-12-31"}
     ).json()
 
-    assert [s["id"] for s in body["sources"]] == ["zcode", "minimax", "opencode", "workbuddy"]
+    assert [s["id"] for s in body["sources"]] == [
+        "zcode",
+        "minimax",
+        "opencode",
+        "workbuddy",
+        "qoder_cn",
+    ]
     assert body["request_count"] == 1

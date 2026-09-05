@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # WorkBuddy root: holds projects/**/*.jsonl (the only metered source) and
     # workbuddy.db, whose session_usage duplicates credit totals and is never read.
     workbuddy_dir: Path = Path.home() / ".workbuddy"
+    # Qoder CN CLI root: projects transcripts metered in credits (tokens absent);
+    # official 30-day retention truncates the local window.
+    qoder_cn_config_dir: Path = Path.home() / ".qoder-cn"
 
     # Optional VLM used for screenshot price extraction (OpenAI-compatible chat).
     vlm_base_url: str = ""
