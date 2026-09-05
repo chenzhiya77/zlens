@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     pricing_path: Path = Path("pricing.json")
     minimax_sessions_dir: Path = Path.home() / ".minimax" / "v2" / "sessions"
     opencode_db_path: Path = Path.home() / ".local" / "share" / "opencode" / "opencode.db"
+    # WorkBuddy root: holds projects/**/*.jsonl (the only metered source) and
+    # workbuddy.db, whose session_usage duplicates credit totals and is never read.
+    workbuddy_dir: Path = Path.home() / ".workbuddy"
 
     # Optional VLM used for screenshot price extraction (OpenAI-compatible chat).
     vlm_base_url: str = ""

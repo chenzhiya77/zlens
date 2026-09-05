@@ -177,7 +177,49 @@ def make_opencode_db(tmp_path):
 
 
 @pytest.fixture
-def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
+def make_workbuddy(tmp_path):
+    """Factory: build a synthetic WorkBuddy root — projects transcripts (the only
+    metered source) plus the twin workbuddy.db whose session_usage duplicates
+    per-session credit totals (the adapter must ignore it entirely)."""
+
+    def _make(sessions, session_usage=()):
+        root = tmp_path / "workbuddy"
+        projects = root / "projects"
+        for spec in sessions:
+            sdir = projects / spec["project_slug"]
+            sdir.mkdir(parents=True, exist_ok=True)
+            lines = [json.dumps(record) for record in spec["records"]]
+            (sdir / f"{spec['session_id']}.jsonl").write_text("\n".join(lines), encoding="utf-8")
+        if session_usage:
+            con = sqlite3.connect(root / "workbuddy.db")
+            try:
+                con.execute(
+                    "CREATE TABLE sessions ("
+                    "id TEXT PRIMARY KEY, cwd TEXT, title TEXT, custom_title TEXT)"
+                )
+                con.execute(
+                    "CREATE TABLE session_usage ("
+                    "session_id TEXT PRIMARY KEY, used INTEGER, size INTEGER, credit_json TEXT)"
+                )
+                con.executemany(
+                    "INSERT INTO sessions (id, cwd, title, custom_title) VALUES (?, ?, ?, ?)",
+                    [(s[0], s[1], s[2], None) for s in session_usage],
+                )
+                con.executemany(
+                    "INSERT INTO session_usage (session_id, used, size, credit_json) "
+                    "VALUES (?, ?, ?, ?)",
+                    session_usage,
+                )
+                con.commit()
+            finally:
+                con.close()
+        return root
+
+    return _make
+
+
+@pytest.fixture
+def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db, make_workbuddy):
     """Settings where only the explicitly built sources exist."""
 
     def _make(
@@ -186,6 +228,8 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
         minimax=(),
         opencode=None,
         opencode_sessions=(),
+        workbuddy=None,
+        workbuddy_usage=(),
         pricing_path=None,
         config_json_path=None,
     ):
@@ -198,6 +242,11 @@ def make_settings(tmp_path, make_db, make_minimax_sessions, make_opencode_db):
                 make_opencode_db(opencode, opencode_sessions)
                 if opencode is not None
                 else tmp_path / "opencode-missing.db"
+            ),
+            workbuddy_dir=(
+                make_workbuddy(workbuddy, workbuddy_usage)
+                if workbuddy
+                else tmp_path / "workbuddy-missing"
             ),
             pricing_path=(pricing_path or tmp_path / "pricing.json"),
             config_json_path=(config_json_path or tmp_path / "zlens.config.json"),

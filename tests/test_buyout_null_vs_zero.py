@@ -32,6 +32,7 @@ def _client(make_db, tmp_path, prices):
             pricing_path=pricing_path,
             minimax_sessions_dir=tmp_path / "minimax-missing",
             opencode_db_path=tmp_path / "opencode-missing.db",
+            workbuddy_dir=tmp_path / "workbuddy-missing",
         )
     )
     return TestClient(app)

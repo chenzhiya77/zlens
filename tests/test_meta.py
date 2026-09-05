@@ -49,6 +49,7 @@ def test_missing_database_reports_source_unavailable(tmp_path):
         db_path=tmp_path / "absent.sqlite",
         minimax_sessions_dir=tmp_path / "minimax-missing",
         opencode_db_path=tmp_path / "opencode-missing.db",
+        workbuddy_dir=tmp_path / "workbuddy-missing",
     )
     client = TestClient(create_app(settings))
 
@@ -73,6 +74,7 @@ def test_broken_schema_reports_schema_incompatible(tmp_path):
                 db_path=path,
                 minimax_sessions_dir=tmp_path / "minimax-missing",
                 opencode_db_path=tmp_path / "opencode-missing.db",
+                workbuddy_dir=tmp_path / "workbuddy-missing",
             )
         )
     )

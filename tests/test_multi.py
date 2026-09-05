@@ -81,6 +81,7 @@ def test_broken_zcode_does_not_sink_other_sources(client_factory, tmp_path):
                 db_path=broken,
                 minimax_sessions_dir=make_minimax_root,
                 opencode_db_path=tmp_path / "opencode-missing.db",
+                workbuddy_dir=tmp_path / "workbuddy-missing",
             )
         )
     )
