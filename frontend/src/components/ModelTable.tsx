@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { aliasKey, displayName } from "../lib/alias";
 import type { ModelUsageSummary, OverviewTotals, SortColumn } from "../lib/api";
@@ -117,22 +117,27 @@ export default function ModelTable({
                 <th className="py-2 pl-4 pr-4 font-medium">来源</th>
                 <th className="py-2 pr-4 font-medium">模型</th>
                 {onAlias && <th className="py-2 pr-4 font-medium">别名</th>}
+                {/* 积分列插在总计与成本之间(与数据行/合计行/Projects 页同序):
+                    Fragment 让它在可排序的列序列里占位而不参与排序。 */}
                 {SORTABLE_COLUMNS.map((col) => (
-                  <SortableTh
-                    key={col.key}
-                    column={col.key}
-                    label={col.label}
-                    sort={sort}
-                    order={order}
-                    onSort={onSort}
-                  />
+                  <Fragment key={col.key}>
+                    {col.key === "estimated_cost" && (
+                      <th
+                        className="py-2 pr-4 text-right font-medium"
+                        title="第三笔账:来源上报的实扣积分(原价/折扣差额与标价值见总览卡片);— 表示该来源不报积分"
+                      >
+                        积分
+                      </th>
+                    )}
+                    <SortableTh
+                      column={col.key}
+                      label={col.label}
+                      sort={sort}
+                      order={order}
+                      onSort={onSort}
+                    />
+                  </Fragment>
                 ))}
-                <th
-                  className="py-2 pr-4 text-right font-medium"
-                  title="第三笔账:来源上报的实扣积分(原价/折扣差额与标价值见总览卡片);— 表示该来源不报积分"
-                >
-                  积分
-                </th>
               </tr>
           </thead>
           <tbody>
