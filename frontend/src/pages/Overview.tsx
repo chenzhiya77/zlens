@@ -347,33 +347,27 @@ export default function Overview() {
         />
       </div>
 
-      {/* 第三笔账卡片区(v3 T36):实扣 / 原价 / 折扣差额 / 标价值 各自成列,
-          与按量消耗、买断支出两两永不相加;范围内没有积分上报时整块不渲染——
-          纯 token 用户看不到一块空卡片。 */}
+      {/* 第三笔账卡片区(v3 T36 + 分源修正):积分是 per-source 单位——
+          不同 agent 的积分换算规则不同,数字不可跨源相加,所以每个上报积分的
+          来源一张卡;标价值是钱(逐行乘各自单价),跨来源可比。范围内没有积分
+          上报时整块不渲染——纯 token 用户看不到空卡片。 */}
       {o.credits_reported && (
         <section className="grid grid-cols-4 gap-4 @max-[1100px]:grid-cols-2">
-          <KpiCard
-            label="实扣积分"
-            hint={`上报来源:${o.credit_reporting_sources.join("、") || "—"}`}
-            value={formatCredits(o.credit_total)}
-            sub={
-              <span>
-                {`${o.credit_reporting_sources.join("、") || "—"} 上报 · 不与任何金额相加`}
-              </span>
-            }
-          />
-          <KpiCard
-            label="原价积分(折扣前)"
-            hint="上游逐条上报的折扣前口径;WorkBuddy 等不提供原价的来源为空"
-            value={formatCredits(o.credit_original_total)}
-            sub={<span>{o.credit_original_total === null ? "该来源未提供原价口径" : "逐条原价合计"}</span>}
-          />
-          <KpiCard
-            label="折扣差额"
-            hint="原价 − 实扣,纯派生展示值;不写回价格表,不在前端另算"
-            value={formatCredits(o.discount_credits)}
-            sub={<span>促销/错峰折扣省下的积分</span>}
-          />
+          {(o.credit_by_source ?? []).map((ledger) => (
+            <KpiCard
+              key={ledger.source}
+              label={`${ledger.source} · 实扣积分`}
+              hint="第三笔账:积分单位 per-source,不同 agent 的积分不可相加"
+              value={formatCredits(ledger.credits)}
+              sub={
+                <span>
+                  {ledger.original_credits === null
+                    ? "该来源未提供原价口径"
+                    : `原价 ${formatCredits(ledger.original_credits)} · 折扣 ${formatCredits(ledger.discount_credits)}`}
+                </span>
+              }
+            />
+          ))}
           <KpiCard
             label="积分标价值 (CNY)"
             hint="按价格表「积分单价」折算;标价不是实付,与按量消耗、买断支出永不相加"

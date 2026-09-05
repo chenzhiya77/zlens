@@ -170,10 +170,66 @@ def test_credit_value_null_when_any_reporting_source_unpriced(tmp_path):
         ),
         table,
     )
-    assert overview.credit_total == 200.0
+    assert overview.credit_total is None
     # qoder_cn 没录 plan 价 → 该 basis 整体 null(半张账单会系统性低估)。
     assert overview.credit_value_cny.plan is None
     assert overview.credit_value_cny.pack is None
+    # 两个积分来源:平账作废,分源账本接手(积分单位 per-source,不可跨源相加)。
+    ledgers = {ledger.source: ledger for ledger in overview.credit_by_source}
+    assert ledgers["workbuddy"].credits == 100.0
+    assert ledgers["qoder_cn"].credits == 100.0
+
+
+def test_credit_ledgers_are_per_source_and_flat_total_never_crosses_sources():
+    """两个积分来源的积分数不可相加(单位不等价);每个来源自己的账本
+    (实扣/原价/折扣)照常成立;单来源时平账字段保持有值。"""
+    overview = enrich_overview(
+        Overview(
+            request_count=2,
+            input_tokens=0,
+            output_tokens=0,
+            reasoning_tokens=0,
+            cache_creation_tokens=0,
+            cache_read_tokens=0,
+            total_tokens=0,
+            by_model=[
+                _credit_row(credits=325.42, original_credits=374.5),
+                _credit_row(
+                    source="qoder_cn",
+                    provider_id="qoder",
+                    model_id="qfmodel",
+                    credits=507.81,
+                    original_credits=600.0,
+                ),
+            ],
+        ),
+        PriceTable(),
+    )
+    assert overview.credit_total is None
+    assert overview.credit_original_total is None
+    assert overview.discount_credits is None
+    ledgers = {ledger.source: ledger for ledger in overview.credit_by_source}
+    assert ledgers["workbuddy"].credits == 325.42
+    assert ledgers["workbuddy"].original_credits == 374.5
+    assert ledgers["workbuddy"].discount_credits == pytest.approx(49.08, abs=1e-9)
+    assert ledgers["qoder_cn"].credits == 507.81
+    assert ledgers["qoder_cn"].discount_credits == pytest.approx(92.19, abs=1e-9)
+    # 单来源时 flat 合计仍有值(单积分源视图不受影响)
+    single = enrich_overview(
+        Overview(
+            request_count=1,
+            input_tokens=0,
+            output_tokens=0,
+            reasoning_tokens=0,
+            cache_creation_tokens=0,
+            cache_read_tokens=0,
+            total_tokens=0,
+            by_model=[_credit_row(credits=325.42)],
+        ),
+        PriceTable(),
+    )
+    assert single.credit_total == 325.42
+    assert single.credit_by_source[0].credits == 325.42
 
 
 def test_discount_needs_both_sides():

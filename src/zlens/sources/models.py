@@ -207,11 +207,29 @@ class CreditValueCny(BaseModel):
     `plan` = subscription-equivalent rate, `pack` = add-on-pack rate; both are
     real prices answering different questions and render side by side, never
     auto-picked-low. A credit-reporting source missing the basis price nulls
-    exactly that basis (half a bill would systematically understate).
+    exactly that basis (half a bill would systematically understate). Money is
+    the one cross-source comparable unit, so unlike the credit *counts* this
+    may sum across sources (each row priced at its own source's rate).
     """
 
     plan: float | None = None
     pack: float | None = None
+
+
+class CreditBySource(BaseModel):
+    """One source's credit ledger, per source (v3 third ledger, 分源).
+
+    Credit counts are a per-source unit: WorkBuddy's 1 credit and Qoder CN's 1
+    credit convert to different CNY amounts, so summing credit numbers across
+    sources is a fake ledger (the credit-side face of the no-cross-channel-
+    merge red line). Cross-source comparison happens only after list-price
+    conversion (`credit_value_cny`); the counts themselves stay per source.
+    """
+
+    source: str
+    credits: float
+    original_credits: float | None = None
+    discount_credits: float | None = None
 
 
 class Overview(BaseModel):
@@ -239,8 +257,13 @@ class Overview(BaseModel):
     totals: OverviewTotals | None = None
     # Third ledger (v3) — field discipline per ModelUsageSummary; the aggregates
     # are derived by the cost layer, never by the client (现总价 discipline).
-    # `plan`/`pack` degrade independently: a missing price for one basis nulls
-    # exactly that basis. All-None = no source reported credits in scope.
+    # Credit counts are a per-source unit (WorkBuddy's credit ≠ Qoder CN's
+    # credit), so `credits`/`credit_total`/`credit_original_total`/
+    # `discount_credits` carry a value only while exactly ONE source reports
+    # credits in scope — with two or more they are null and the per-source
+    # ledgers in `credit_by_source` take over. `credit_value_cny` (money) may
+    # span sources: each row is priced at its own source's rate, with the
+    # missing-basis null gate. `plan`/`pack` degrade independently.
     credits: float | None = None
     original_credits: float | None = None
     tokens_reported: bool = True
@@ -249,6 +272,7 @@ class Overview(BaseModel):
     credit_original_total: float | None = None
     discount_credits: float | None = None
     credit_value_cny: CreditValueCny | None = None
+    credit_by_source: list[CreditBySource] = []
     # Row-derived per window: sources with any credits_reported row vs any
     # tokens_reported row. The complement of the latter against active sources
     # is the "未计入 token 口径" hint list.

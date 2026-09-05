@@ -26,6 +26,7 @@ from pathlib import Path
 from pydantic import BaseModel, field_validator
 
 from zlens.sources.models import (
+    CreditBySource,
     CreditValueCny,
     DailyModelUsage,
     DailyTrends,
@@ -266,8 +267,18 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     ]
     total = round(sum(m.estimated_cost or 0 for m in by_model), 6)
     credit_rows = [m for m in by_model if m.credits is not None]
-    credit_total = round(sum(m.credits for m in credit_rows), 6) if credit_rows else None
-    original_rows = [m for m in credit_rows if m.original_credits is not None]
+    # Credit counts are a per-source unit: WorkBuddy's 1 credit and Qoder CN's 1
+    # credit convert to different CNY, so a flat sum across sources is a fake
+    # ledger. The flat totals exist only while exactly one source reports
+    # credits; with two or more they go null and the per-source ledgers in
+    # credit_by_source take over. Money stays cross-source comparable —
+    # credit_value_cny prices each row at its own source's rate.
+    credit_sources = sorted({m.source for m in credit_rows})
+    single_source_rows = credit_rows if len(credit_sources) == 1 else []
+    credit_total = (
+        round(sum(m.credits for m in single_source_rows), 6) if single_source_rows else None
+    )
+    original_rows = [m for m in single_source_rows if m.original_credits is not None]
     credit_original_total = (
         round(sum(m.original_credits for m in original_rows), 6) if original_rows else None
     )
@@ -276,6 +287,21 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
         if credit_total is not None and credit_original_total is not None
         else None
     )
+
+    def _source_ledger(source: str) -> CreditBySource:
+        rows = [m for m in credit_rows if m.source == source]
+        original = [m.original_credits for m in rows if m.original_credits is not None]
+        credits_sum = round(sum(m.credits for m in rows), 6)
+        original_sum = round(sum(original), 6) if original else None
+        return CreditBySource(
+            source=source,
+            credits=credits_sum,
+            original_credits=original_sum,
+            discount_credits=(
+                round(original_sum - credits_sum, 6) if original_sum is not None else None
+            ),
+        )
+
     totals = OverviewTotals(
         request_count=overview.request_count,
         input_tokens=overview.input_tokens,
@@ -299,6 +325,7 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
             "credit_original_total": credit_original_total,
             "discount_credits": discount_credits,
             "credit_value_cny": _credit_value_cny(credit_rows, table),
+            "credit_by_source": [_source_ledger(source) for source in credit_sources],
         },
     )
 

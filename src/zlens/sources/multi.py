@@ -116,16 +116,20 @@ class MultiSource:
 
     def overview(self, window: DateWindow | None = None) -> Overview:
         parts = [a.overview(window) for a in self._active_or_raise()]
-        # Credits merge by "ignore-null sum": a source not reporting credits has
-        # no such ledger (ZCode), it is not missing data — so its absence never
-        # poisons the total, and the reporting sources ride along so the UI can
-        # scope the number ("仅含 N 个上报积分的来源"). Token totals stay plain
-        # sums, but tokens_reported flips to False when any contributing row
-        # came from a non-token-reporting source: that total is then partial by
+        # Credits merge per source: a source not reporting credits has no such
+        # ledger (ZCode), and — just as important — two credit-reporting sources
+        # carry two *non-equivalent* units (WorkBuddy's credit ≠ Qoder CN's), so
+        # the flat sum exists only while exactly one source reports credits.
+        # Multi-source scopes read the ledgers from credit_by_source (cost
+        # layer) instead of a cross-source total. Token totals stay plain sums,
+        # but tokens_reported flips to False when any contributing row came
+        # from a non-token-reporting source: that total is then partial by
         # construction and must be labeled as such, never silently added.
         rows = [row for p in parts for row in p.by_model]
         credit_rows = [row for row in rows if row.credits is not None]
-        original_rows = [row for row in credit_rows if row.original_credits is not None]
+        credit_sources = {row.source for row in credit_rows}
+        single = credit_rows if len(credit_sources) == 1 else []
+        original_single = [row for row in single if row.original_credits is not None]
         return Overview(
             request_count=sum(p.request_count for p in parts),
             input_tokens=sum(p.input_tokens for p in parts),
@@ -134,10 +138,10 @@ class MultiSource:
             cache_creation_tokens=sum(p.cache_creation_tokens for p in parts),
             cache_read_tokens=sum(p.cache_read_tokens for p in parts),
             total_tokens=sum(p.total_tokens for p in parts),
-            credits=(round(sum(row.credits for row in credit_rows), 6) if credit_rows else None),
+            credits=(round(sum(row.credits for row in single), 6) if single else None),
             original_credits=(
-                round(sum(row.original_credits for row in original_rows), 6)
-                if original_rows
+                round(sum(row.original_credits for row in original_single), 6)
+                if original_single
                 else None
             ),
             tokens_reported=all(row.tokens_reported for row in rows),

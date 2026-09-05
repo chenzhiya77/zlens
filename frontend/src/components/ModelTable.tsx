@@ -91,6 +91,7 @@ export default function ModelTable({
   totals,
   modelCount,
   creditTotal,
+  groupBySource = false,
 }: {
   models: ModelUsageSummary[];
   aliases?: Record<string, string>;
@@ -101,8 +102,124 @@ export default function ModelTable({
   totals?: OverviewTotals | null;
   modelCount?: number;
   creditTotal?: number | null;
+  /** 按来源(使用的 agent)分组渲染,组头可折叠(价格表分组头同款形式)。 */
+  groupBySource?: boolean;
 }) {
   const labelSpan = onAlias ? 3 : 2;
+  const [collapsedSources, setCollapsedSources] = useState<Set<string>>(new Set());
+
+  // 分组渲染(v3 用户反馈):总览明细按来源分列——不同 agent 的账并排看,组头
+  // 可折叠。组间按当前排序键的组内合计降序(排序语义在分组下依然成立),组内
+  // 维持传入顺序;搜索过滤已在调用方完成,组头计数是过滤后的口径。
+  const sourceGroups = (() => {
+    if (!groupBySource) return [];
+    const map = new Map<string, ModelUsageSummary[]>();
+    for (const row of models) {
+      const bucket = map.get(row.source);
+      if (bucket) bucket.push(row);
+      else map.set(row.source, [row]);
+    }
+    const metricSum = (rows: ModelUsageSummary[]) => {
+      if (sort === "estimated_cost") return rows.reduce((s, r) => s + (r.estimated_cost ?? 0), 0);
+      if (sort === "request_count") return rows.reduce((s, r) => s + r.request_count, 0);
+      return rows.reduce((s, r) => s + r.total_tokens, 0);
+    };
+    return [...map.entries()]
+      .map(([source, rows]) => ({ source, rows }))
+      .sort((a, b) => metricSum(b.rows) - metricSum(a.rows));
+  })();
+
+  const toggleSource = (source: string) =>
+    setCollapsedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) next.delete(source);
+      else next.add(source);
+      return next;
+    });
+
+  const groupHeader = (source: string, rows: ModelUsageSummary[]) => {
+    const credits = rows.reduce((s, r) => s + (r.credits ?? 0), 0);
+    const cost = rows.reduce((s, r) => s + (r.estimated_cost ?? 0), 0);
+    const collapsed = collapsedSources.has(source);
+    return (
+      <tr key={`group:${source}`} className="bg-zinc-950/60">
+        <td colSpan={labelSpan + SORTABLE_COLUMNS.length + 1} className="p-0">
+          <button
+            type="button"
+            onClick={() => toggleSource(source)}
+            title="点击折叠/展开该 agent 的明细;组内积分只在本组内合计(不同 agent 的积分单位不等价)"
+            className="sticky left-0 flex w-max max-w-full items-center gap-2 py-1.5 pl-4 text-left text-[11px] text-zinc-400 hover:text-zinc-200"
+          >
+            <span className="w-3 font-mono text-zinc-600">{collapsed ? "▸" : "▾"}</span>
+            <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-300">
+              {source}
+            </span>
+            <span>{rows.length} 个模型</span>
+            <span className="text-zinc-600">实扣 {formatCredits(credits)}</span>
+            <span
+              className="text-zinc-600"
+              title="组内成本合计(未计价渠道按 ¥0 计入,与总览同口径)"
+            >
+              成本 {formatCost(cost)}
+            </span>
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderRow = (row: ModelUsageSummary) => {
+    const key = aliasKey(row.source, row.provider_id, row.model_id);
+    return (
+      <tr key={key} className="border-b border-zinc-800/60">
+        <td className="py-2 pl-4 pr-4">
+          <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
+            {row.source}
+          </span>
+        </td>
+        <td className="py-2 pr-4 font-mono text-xs text-zinc-300" title={row.model_id}>
+          {onAlias
+            ? row.model_id
+            : displayName(aliases, row.source, row.provider_id, row.model_id)}
+        </td>
+        {onAlias && (
+          <td className="py-2 pr-4">
+            <AliasInput
+              stored={aliases[key] ?? ""}
+              placeholder={row.model_id}
+              onChange={(value) => onAlias(key, value)}
+            />
+          </td>
+        )}
+        <td className="py-2 pr-4 text-right tabular-nums">
+          {row.request_count.toLocaleString("zh-CN")}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums">{formatTokens(row.input_tokens)}</td>
+        <td className="py-2 pr-4 text-right tabular-nums">{formatTokens(row.output_tokens)}</td>
+        <td
+          className={`py-2 pr-4 text-right tabular-nums ${
+            row.cache_creation_tokens === 0 ? "text-zinc-600" : ""
+          }`}
+        >
+          {formatTokens(row.cache_creation_tokens)}
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums">{formatTokens(row.cache_read_tokens)}</td>
+        <td className="py-2 pr-4 text-right tabular-nums font-medium">
+          {formatTokens(row.total_tokens)}
+        </td>
+        <td
+          className="py-2 pr-4 text-right tabular-nums"
+          title="第三笔账:该来源上报的实扣积分(与 token 成本互不折算);— 表示该来源不报积分"
+        >
+          <CreditsText credits={row.credits} />
+        </td>
+        <td className="py-2 pr-4 text-right tabular-nums">
+          <CostText cost={row.estimated_cost} />
+        </td>
+      </tr>
+    );
+  };
+
   return (
     /* 表格卡片(设计稿 2:61):白底圆角卡包住表头/数据行/合计行,表头的浅色
        条(#fafafa)只有落在卡片里才看得见——直接坐在页面底上会与页面同色。
@@ -141,66 +258,12 @@ export default function ModelTable({
               </tr>
           </thead>
           <tbody>
-            {models.map((row) => {
-              const key = aliasKey(row.source, row.provider_id, row.model_id);
-              return (
-                <tr key={key} className="border-b border-zinc-800/60">
-                  <td className="py-2 pl-4 pr-4">
-                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[11px] text-zinc-400">
-                      {row.source}
-                    </span>
-                  </td>
-                  <td
-                    className="py-2 pr-4 font-mono text-xs text-zinc-300"
-                    title={row.model_id}
-                  >
-                    {onAlias
-                      ? row.model_id
-                      : displayName(aliases, row.source, row.provider_id, row.model_id)}
-                  </td>
-                  {onAlias && (
-                    <td className="py-2 pr-4">
-                      <AliasInput
-                        stored={aliases[key] ?? ""}
-                        placeholder={row.model_id}
-                        onChange={(value) => onAlias(key, value)}
-                      />
-                    </td>
-                  )}
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {row.request_count.toLocaleString("zh-CN")}
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {formatTokens(row.input_tokens)}
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {formatTokens(row.output_tokens)}
-                  </td>
-                  <td
-                    className={`py-2 pr-4 text-right tabular-nums ${
-                      row.cache_creation_tokens === 0 ? "text-zinc-600" : ""
-                    }`}
-                  >
-                    {formatTokens(row.cache_creation_tokens)}
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {formatTokens(row.cache_read_tokens)}
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums font-medium">
-                    {formatTokens(row.total_tokens)}
-                  </td>
-                  <td
-                    className="py-2 pr-4 text-right tabular-nums"
-                    title="第三笔账:该来源上报的实扣积分(与 token 成本互不折算);— 表示该来源不报积分"
-                  >
-                    <CreditsText credits={row.credits} />
-                  </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    <CostText cost={row.estimated_cost} />
-                  </td>
-                </tr>
-              );
-            })}
+            {groupBySource
+              ? sourceGroups.flatMap(({ source, rows }) => [
+                  groupHeader(source, rows),
+                  ...(collapsedSources.has(source) ? [] : rows.map(renderRow)),
+                ])
+              : models.map(renderRow)}
           </tbody>
           {totals && (
             <tfoot>

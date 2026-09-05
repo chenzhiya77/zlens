@@ -73,7 +73,9 @@ zlens/
   「买断支出」= Σ `buyout_amount`(一次性付款),已付的钱不因缺单价而变未知,故不守那条规则。
   「积分标价值」(v3)= Σ 实扣积分 × `credit_prices` 单价(`source|basis` 两段键,plan/pack
   并存分别显示)——它是标价折算,**不是实付**,与上两笔同样互不相加;来源「未上报」与 0
-  可区分(`credits` null-vs-0,同 `buyout_amount` 纪律)。
+  可区分(`credits` null-vs-0,同 `buyout_amount` 纪律)。**积分数字本身是 per-source 单位**
+  (不同 agent 的积分换算规则不同、不等价),只在来源内合计——两个积分来源并存时跨源
+  合计字段为 null,分源账在 `credit_by_source`;跨来源可比的只有标价折算后的钱。
   三者**两两永不相加**,买断价也不摊成每百万等效单价(摊出来的是假精确)。`buyout_amount`
   **留空(null)与填 0 必须可区分**——把「没填」显示成 `¥0.00` 就是撒谎。价格表页的「现总价」
   是派生显示值,一律从 `/api/overview` 取,禁止写回 `pricing.json` 或在前端重算一份公式

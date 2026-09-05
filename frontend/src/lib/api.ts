@@ -174,6 +174,7 @@ export interface Overview {
   discount_credits: number | null;
   /** 标价折算(¥),按 basis 独立降级;它是标价不是实付。 */
   credit_value_cny: CreditValueCny | null;
+  credit_by_source: CreditBySource[];
   credit_reporting_sources: string[];
   token_reporting_sources: string[];
 }
@@ -181,6 +182,14 @@ export interface Overview {
 export interface CreditValueCny {
   plan: number | null;
   pack: number | null;
+}
+
+/** 一个来源的积分账(分源):积分单位 per-source,不同 agent 的积分不可相加。 */
+export interface CreditBySource {
+  source: string;
+  credits: number;
+  original_credits: number | null;
+  discount_credits: number | null;
 }
 
 export const fetchMeta = (q: ViewQuery = {}) => getJson<MetaInfo>(`/api/meta${viewQueryString(q)}`);

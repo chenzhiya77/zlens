@@ -169,6 +169,46 @@ def test_token_only_merge_has_no_credit_ledger():
     assert sorted(body.token_reporting_sources) == ["minimax", "zcode"]
 
 
+def test_credits_never_sum_across_sources():
+    """两个积分来源的积分数不可相加:WorkBuddy 的积分和 Qoder CN 的积分
+    是两种不等价的计量单位,平账字段必须为 null,分源数字看 credit_by_source。"""
+    store = MultiSource(
+        [
+            FakeSource(
+                "workbuddy",
+                [
+                    _row(
+                        "workbuddy",
+                        "glm-5.2",
+                        credits=325.42,
+                        tokens_reported=False,
+                        credits_reported=True,
+                    )
+                ],
+                reports_credits=True,
+            ),
+            FakeSource(
+                "qoder_cn",
+                [
+                    _row(
+                        "qoder_cn",
+                        "qfmodel",
+                        credits=507.81,
+                        tokens_reported=False,
+                        credits_reported=True,
+                    )
+                ],
+                reports_credits=True,
+            ),
+        ]
+    )
+    body = store.overview()
+    assert body.credits is None
+    assert body.credits_reported is True
+    assert body.credit_reporting_sources == ["qoder_cn", "workbuddy"]
+    assert body.tokens_reported is False
+
+
 def test_meta_unions_reporting_lists_and_selection_scopes_them():
     store = _merged()
     meta = store.meta()
