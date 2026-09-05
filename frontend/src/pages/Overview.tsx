@@ -17,7 +17,7 @@ import {
   type SortColumn,
   type ViewQuery,
 } from "../lib/api";
-import { formatDateTime, formatCost, formatTokens } from "../lib/format";
+import { formatDateTime, formatCost, formatCredits, formatTokens } from "../lib/format";
 import type { EChartsOption } from "echarts";
 
 // 视觉结构照 Ardot 设计稿 719793184410961「AI用量总览-优化版」(T23),交互接线为 T24:
@@ -243,6 +243,12 @@ export default function Overview() {
         ? "免费套餐"
         : "已付清";
 
+  // token 口径提示的来源清单用 meta 的特征声明(该来源报不报 token 是属性,
+  // 与窗口无关);行级 tokens_reported 只决定合并合计是否要打局部标记。
+  const nonTokenSources = (m.sources ?? [])
+    .filter((s) => s.available && !(m.token_reporting_sources ?? []).includes(s.id))
+    .map((s) => s.id);
+
   return (
     <div className="@container space-y-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -341,6 +347,56 @@ export default function Overview() {
         />
       </div>
 
+      {/* 第三笔账卡片区(v3 T36):实扣 / 原价 / 折扣差额 / 标价值 各自成列,
+          与按量消耗、买断支出两两永不相加;范围内没有积分上报时整块不渲染——
+          纯 token 用户看不到一块空卡片。 */}
+      {o.credits_reported && (
+        <section className="grid grid-cols-4 gap-4 @max-[1100px]:grid-cols-2">
+          <KpiCard
+            label="实扣积分"
+            hint={`上报来源:${o.credit_reporting_sources.join("、") || "—"}`}
+            value={formatCredits(o.credit_total)}
+            sub={
+              <span>
+                {`${o.credit_reporting_sources.join("、") || "—"} 上报 · 不与任何金额相加`}
+              </span>
+            }
+          />
+          <KpiCard
+            label="原价积分(折扣前)"
+            hint="上游逐条上报的折扣前口径;WorkBuddy 等不提供原价的来源为空"
+            value={formatCredits(o.credit_original_total)}
+            sub={<span>{o.credit_original_total === null ? "该来源未提供原价口径" : "逐条原价合计"}</span>}
+          />
+          <KpiCard
+            label="折扣差额"
+            hint="原价 − 实扣,纯派生展示值;不写回价格表,不在前端另算"
+            value={formatCredits(o.discount_credits)}
+            sub={<span>促销/错峰折扣省下的积分</span>}
+          />
+          <KpiCard
+            label="积分标价值 (CNY)"
+            hint="按价格表「积分单价」折算;标价不是实付,与按量消耗、买断支出永不相加"
+            value={
+              o.credit_value_cny === null
+                ? "未录价"
+                : o.credit_value_cny.plan === null
+                  ? "未录套餐价"
+                  : formatCost(o.credit_value_cny.plan)
+            }
+            sub={
+              <span>
+                {o.credit_value_cny === null
+                  ? "请先在价格表录入「¥/积分」"
+                  : o.credit_value_cny.pack === null
+                    ? "加量包口径未录价(录入后分别显示)"
+                    : `加量包口径 ${formatCost(o.credit_value_cny.pack)}(plan/pack 并存,不取低)`}
+              </span>
+            }
+          />
+        </section>
+      )}
+
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-3">
@@ -384,7 +440,16 @@ export default function Overview() {
           onSort={handleSort}
           totals={o.totals}
           modelCount={o.by_model.length}
+          creditTotal={o.credit_total}
         />
+        {/* token 口径提示(T36):不报 token 的来源(如 Qoder CN)不计入合计,
+            必须显式标注,禁止静默相加;它们的用量看「积分」列。 */}
+        {nonTokenSources.length > 0 && (
+          <p className="mt-2 text-xs text-amber-400/90">
+            token 合计未计入:{nonTokenSources.join("、")}
+            (这些来源不提供 token 数据,用量看「积分」列)
+          </p>
+        )}
       </section>
 
       <footer className="flex items-center justify-between border-t border-zinc-800 pt-4 text-xs text-zinc-500">

@@ -102,6 +102,13 @@ export interface ModelUsageSummary {
   cache_read_tokens: number;
   total_tokens: number;
   estimated_cost: number | null;
+  /** 第三笔账:上游上报的实扣积分;null = 该来源不报积分(严格区别于 0)。 */
+  credits: number | null;
+  /** 折扣前原价积分(Qoder CN 逐条带折扣,WorkBuddy 无此字段)。 */
+  original_credits: number | null;
+  /** false = token 四档是占位 0(上游不报 token),禁止参与任何乘价。 */
+  tokens_reported: boolean;
+  credits_reported: boolean;
   /** cache_read / (input + cache_read + cache_creation); denominator 0 → null. */
   cache_hit_rate: number | null;
 }
@@ -156,6 +163,24 @@ export interface Overview {
   delta: PeriodDelta | null;
   totals: OverviewTotals | null;
   by_model: ModelUsageSummary[];
+  /** 第三笔账(积分):字段纪律同行级;合计由后端算,前端只渲染。 */
+  credits: number | null;
+  original_credits: number | null;
+  tokens_reported: boolean;
+  credits_reported: boolean;
+  credit_total: number | null;
+  credit_original_total: number | null;
+  /** 原价 − 实扣,纯派生展示值。 */
+  discount_credits: number | null;
+  /** 标价折算(¥),按 basis 独立降级;它是标价不是实付。 */
+  credit_value_cny: CreditValueCny | null;
+  credit_reporting_sources: string[];
+  token_reporting_sources: string[];
+}
+
+export interface CreditValueCny {
+  plan: number | null;
+  pack: number | null;
 }
 
 export const fetchMeta = (q: ViewQuery = {}) => getJson<MetaInfo>(`/api/meta${viewQueryString(q)}`);
@@ -173,6 +198,10 @@ export interface DailyUsage {
   cache_read_tokens: number;
   total_tokens: number;
   estimated_cost: number | null;
+  credits: number | null;
+  original_credits: number | null;
+  tokens_reported: boolean;
+  credits_reported: boolean;
 }
 
 export interface DailyModelUsage {
@@ -188,6 +217,10 @@ export interface DailyModelUsage {
   cache_read_tokens: number;
   total_tokens: number;
   estimated_cost: number | null;
+  credits: number | null;
+  original_credits: number | null;
+  tokens_reported: boolean;
+  credits_reported: boolean;
 }
 
 export interface DailyTrends {
@@ -212,6 +245,10 @@ export interface ProjectUsage {
   cache_read_tokens: number;
   total_tokens: number;
   estimated_cost: number | null;
+  credits: number | null;
+  original_credits: number | null;
+  tokens_reported: boolean;
+  credits_reported: boolean;
 }
 
 export const fetchProjects = () =>

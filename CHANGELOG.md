@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **积分类来源接入(v3,docs/specs/v3-credit-sources-spec.md)**:新增 WorkBuddy(T32)与
+  Qoder CN CLI(T33)两个只读适配器,引入**第三笔账「积分消耗」**(T31)——与「按量消耗」
+  「买断支出」两两永不相加。行级契约新增 `credits` / `original_credits` / `tokens_reported` /
+  `credits_reported`:积分来源(Qoder CN)token 四档恒为 0 时显式标记「未提供」而不是 0,
+  禁止参与任何乘价;credits 缺失(null)与 0(混元免费行)严格可分。价格表升 v2 并新增
+  **积分单价录入**(T35,`source|basis` 两段键,plan/pack 并存不取低),Overview 新增积分
+  卡片区(实扣 / 原价 / 折扣差额 / 标价值)与模型表「积分」列,`meta.unpriced_credits`
+  引导补价。前端积分视图与录入区:T36。
 - 价格表页照画布「新文件」优化稿落地四处:卡片底部新增**操作条**——「按量消耗 | 买断支出 ·
   两笔钱永不相加」并排展示(数字取自 `/api/overview`,未计价/未填如实显示,不在前端重算);
   保存按钮带**脏计数**,「N 处未保存改动」替代「改完单价请保存才会刷新」的教学句(快照为上次

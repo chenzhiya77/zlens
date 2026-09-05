@@ -4,7 +4,7 @@ import EChart from "../components/EChart";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/states";
 import { fetchProjects } from "../lib/api";
 import { MODEL_COLORS, chartBase, chartColors } from "../lib/chart";
-import { formatCost, formatTokens } from "../lib/format";
+import { formatCost, formatCredits, formatTokens } from "../lib/format";
 import { useTheme } from "../lib/theme";
 import type { EChartsOption } from "echarts";
 
@@ -51,7 +51,7 @@ export default function Projects() {
         <h2 className="mb-3 text-sm font-medium text-zinc-400">项目明细</h2>
         <p className="mb-2 text-xs text-zinc-600">
           单位：token 列为 tokens；输入 / 输出 / 缓存写 / 缓存读 四列互斥、相加即总计，「输入」只算未命中缓存
-          的部分；成本列按价格表折算人民币 ¥
+          的部分；成本列按价格表折算人民币 ¥;积分列是第三笔账(— 表示该来源不报积分),与成本永不相加
         </p>
         <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
@@ -65,6 +65,12 @@ export default function Projects() {
               <th className="py-2 pr-4 text-right font-medium">输出</th>
               <th className="py-2 pr-4 text-right font-medium">缓存读</th>
               <th className="py-2 pr-4 text-right font-medium">总计</th>
+              <th
+                className="py-2 pr-4 text-right font-medium"
+                title="第三笔账:来源上报的实扣积分;— 表示该来源不报积分(其 money 在总览的积分标价值)"
+              >
+                积分
+              </th>
               <th className="py-2 text-right font-medium">成本(估算)</th>
             </tr>
           </thead>
@@ -90,6 +96,9 @@ export default function Projects() {
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums font-medium">
                   {formatTokens(p.total_tokens)}
+                </td>
+                <td className="py-2 pr-4 text-right tabular-nums">
+                  {formatCredits(p.credits)}
                 </td>
                 <td className="py-2 text-right tabular-nums">
                   {p.estimated_cost === null ? (

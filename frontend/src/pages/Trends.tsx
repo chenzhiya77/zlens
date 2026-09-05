@@ -107,6 +107,11 @@ export default function Trends() {
   if (!view || view.days.length === 0) return <EmptyBlock text="该范围内暂无用量记录" />;
 
   const dayLabels = view.days.map((d) => d.day);
+  // 不报 token 的来源(T33 等)在 token 图表里必然缺席:缺席要显式说出来,
+  // 不能让图表的空白被读成「没用」。
+  const nonTokenSources = [
+    ...new Set((query.data?.by_model ?? []).filter((r) => !r.tokens_reported).map((r) => r.source)),
+  ];
   const colors = chartColors(mode);
   const colorIndex = new Map(view.models.map((model, index) => [model, index]));
 
@@ -253,6 +258,12 @@ export default function Trends() {
         <h2 className="mb-3 text-sm font-medium text-zinc-400">
           每日趋势 — {METRICS.find((m) => m.key === metric)?.label}(按模型)
         </h2>
+        {nonTokenSources.length > 0 && (
+          <p className="mb-2 text-xs text-amber-400/90">
+            token 口径未计入:{nonTokenSources.join("、")}
+            (这些来源不提供 token 数据,只报积分——积分不在本页图表,看总览的「积分」卡片区)
+          </p>
+        )}
         <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 p-4">
           <EChart option={lineOption} height={300} />
           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-800/60 pt-3">

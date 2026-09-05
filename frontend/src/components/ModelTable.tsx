@@ -2,7 +2,16 @@ import { useState } from "react";
 
 import { aliasKey, displayName } from "../lib/alias";
 import type { ModelUsageSummary, OverviewTotals, SortColumn } from "../lib/api";
-import { formatCost, formatTokens } from "../lib/format";
+import { formatCost, formatCredits, formatTokens } from "../lib/format";
+
+/** 积分列的两档表情:null 是「该来源不报积分」(— 变暗),数值含真 0(混元免费行)
+ * 都如实显示两位小数;它属于第三笔账,与成本列永不相加。 */
+function CreditsText({ credits }: { credits: number | null }) {
+  if (credits === null) {
+    return <span className="text-zinc-600">—</span>;
+  }
+  return <span>{formatCredits(credits)}</span>;
+}
 
 // Shared per-model breakdown table (overview + models views).
 // Units: token columns count tokens; the cost column is CNY (per price table).
@@ -81,6 +90,7 @@ export default function ModelTable({
   onSort,
   totals,
   modelCount,
+  creditTotal,
 }: {
   models: ModelUsageSummary[];
   aliases?: Record<string, string>;
@@ -90,6 +100,7 @@ export default function ModelTable({
   onSort?: (column: SortColumn) => void;
   totals?: OverviewTotals | null;
   modelCount?: number;
+  creditTotal?: number | null;
 }) {
   const labelSpan = onAlias ? 3 : 2;
   return (
@@ -102,21 +113,27 @@ export default function ModelTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-950 text-left text-xs text-zinc-500">
-              <th className="py-2 pl-4 pr-4 font-medium">来源</th>
-              <th className="py-2 pr-4 font-medium">模型</th>
-              {onAlias && <th className="py-2 pr-4 font-medium">别名</th>}
-              {SORTABLE_COLUMNS.map((col) => (
-                <SortableTh
-                  key={col.key}
-                  column={col.key}
-                  label={col.label}
-                  sort={sort}
-                  order={order}
-                  onSort={onSort}
-                />
-              ))}
-            </tr>
+              <tr className="border-b border-zinc-800 bg-zinc-950 text-left text-xs text-zinc-500">
+                <th className="py-2 pl-4 pr-4 font-medium">来源</th>
+                <th className="py-2 pr-4 font-medium">模型</th>
+                {onAlias && <th className="py-2 pr-4 font-medium">别名</th>}
+                {SORTABLE_COLUMNS.map((col) => (
+                  <SortableTh
+                    key={col.key}
+                    column={col.key}
+                    label={col.label}
+                    sort={sort}
+                    order={order}
+                    onSort={onSort}
+                  />
+                ))}
+                <th
+                  className="py-2 pr-4 text-right font-medium"
+                  title="第三笔账:来源上报的实扣积分(原价/折扣差额与标价值见总览卡片);— 表示该来源不报积分"
+                >
+                  积分
+                </th>
+              </tr>
           </thead>
           <tbody>
             {models.map((row) => {
@@ -167,6 +184,12 @@ export default function ModelTable({
                   <td className="py-2 pr-4 text-right tabular-nums font-medium">
                     {formatTokens(row.total_tokens)}
                   </td>
+                  <td
+                    className="py-2 pr-4 text-right tabular-nums"
+                    title="第三笔账:该来源上报的实扣积分(与 token 成本互不折算);— 表示该来源不报积分"
+                  >
+                    <CreditsText credits={row.credits} />
+                  </td>
                   <td className="py-2 pr-4 text-right tabular-nums">
                     <CostText cost={row.estimated_cost} />
                   </td>
@@ -201,6 +224,9 @@ export default function ModelTable({
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums font-medium">
                   {formatTokens(totals.total_tokens)}
+                </td>
+                <td className="py-2 pr-4 text-right tabular-nums">
+                  <CreditsText credits={creditTotal ?? null} />
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">
                   <CostText cost={totals.estimated_cost} />

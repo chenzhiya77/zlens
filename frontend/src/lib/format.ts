@@ -12,6 +12,12 @@ export function formatCost(amount: number | null): string {
   return `¥${amount.toFixed(2)}`;
 }
 
+/** 积分不是钱:不带 ¥,恒两位小数(上游可达 9 位,仅展示层取 2 位)。 */
+export function formatCredits(credits: number | null): string {
+  if (credits === null) return "—";
+  return credits.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function formatDateTime(iso: string | null): string {
   if (iso === null) return "—";
   const d = new Date(iso);
