@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Qoder CN CLI root: projects transcripts metered in credits (tokens absent);
     # official 30-day retention truncates the local window.
     qoder_cn_config_dir: Path = Path.home() / ".qoder-cn"
+    # International Qoder CLI root: same shape as the CN CLI, separate source id
+    # (the two products' credits are priced differently and never merge).
+    qoder_config_dir: Path = Path.home() / ".qoder"
 
     # Optional VLM used for screenshot price extraction (OpenAI-compatible chat).
     vlm_base_url: str = ""

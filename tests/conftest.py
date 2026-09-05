@@ -223,8 +223,8 @@ def make_qoder_cn(tmp_path):
     """Factory: synthetic Qoder CN CLI root — main-session transcripts, optional
     per-session subagent transcripts, optional .last-cleanup retention marker."""
 
-    def _make(sessions, last_cleanup=False):
-        root = tmp_path / "qoder-cn"
+    def _make(sessions, last_cleanup=False, root_name="qoder-cn"):
+        root = tmp_path / root_name
         projects = root / "projects"
         for spec in sessions:
             cwd_dir = projects / spec["project_slug"]
@@ -261,6 +261,7 @@ def make_settings(
         workbuddy_usage=(),
         qoder_cn=None,
         qoder_cn_last_cleanup=False,
+        qoder=None,
         pricing_path=None,
         config_json_path=None,
     ):
@@ -283,6 +284,9 @@ def make_settings(
                 make_qoder_cn(qoder_cn, qoder_cn_last_cleanup)
                 if qoder_cn
                 else tmp_path / "qoder-cn-missing"
+            ),
+            qoder_config_dir=(
+                make_qoder_cn(qoder, root_name="qoder") if qoder else tmp_path / "qoder-missing"
             ),
             pricing_path=(pricing_path or tmp_path / "pricing.json"),
             config_json_path=(config_json_path or tmp_path / "zlens.config.json"),

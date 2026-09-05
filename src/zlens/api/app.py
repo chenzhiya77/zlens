@@ -31,6 +31,7 @@ from zlens.sources.base import SourceError, SourceUnavailable
 from zlens.sources.minimax import MinimaxSource
 from zlens.sources.multi import MultiSource
 from zlens.sources.opencode import OpencodeSource
+from zlens.sources.qoder import QoderSource
 from zlens.sources.qoder_cn import QoderCnSource
 from zlens.sources.workbuddy import WorkbuddySource
 from zlens.sources.zcode import ZcodeSource
@@ -50,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             OpencodeSource(settings.opencode_db_path),
             WorkbuddySource(settings.workbuddy_dir),
             QoderCnSource(settings.qoder_cn_config_dir),
+            QoderSource(settings.qoder_config_dir),
         ]
     )
 

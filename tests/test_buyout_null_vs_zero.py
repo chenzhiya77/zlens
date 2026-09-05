@@ -34,6 +34,7 @@ def _client(make_db, tmp_path, prices):
             opencode_db_path=tmp_path / "opencode-missing.db",
             workbuddy_dir=tmp_path / "workbuddy-missing",
             qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
+            qoder_config_dir=tmp_path / "qoder-missing",
         )
     )
     return TestClient(app)

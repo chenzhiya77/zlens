@@ -51,6 +51,7 @@ def test_missing_database_reports_source_unavailable(tmp_path):
         opencode_db_path=tmp_path / "opencode-missing.db",
         workbuddy_dir=tmp_path / "workbuddy-missing",
         qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
+        qoder_config_dir=tmp_path / "qoder-missing",
     )
     client = TestClient(create_app(settings))
 
@@ -77,6 +78,7 @@ def test_broken_schema_reports_schema_incompatible(tmp_path):
                 opencode_db_path=tmp_path / "opencode-missing.db",
                 workbuddy_dir=tmp_path / "workbuddy-missing",
                 qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
+                qoder_config_dir=tmp_path / "qoder-missing",
             )
         )
     )

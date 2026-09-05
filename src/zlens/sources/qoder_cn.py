@@ -71,6 +71,9 @@ def _credit_or_none(value: object) -> float | None:
 
 class QoderCnSource:
     id = "qoder_cn"
+    # Subclasses (international Qoder) override the text; the marker semantics
+    # (official 30-day sessionRetention) are shared across CLI flavors.
+    RETENTION_HINT = _RETENTION_HINT
 
     def __init__(self, config_dir: Path) -> None:
         self._config_dir = config_dir
@@ -152,7 +155,7 @@ class QoderCnSource:
 
     def _retention_hint(self) -> str | None:
         if (self._config_dir / ".last-cleanup").exists():
-            return _RETENTION_HINT
+            return self.RETENTION_HINT
         return None
 
     def meta(self, window: DateWindow | None = None) -> MetaInfo:

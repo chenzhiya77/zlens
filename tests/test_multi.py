@@ -83,6 +83,7 @@ def test_broken_zcode_does_not_sink_other_sources(client_factory, tmp_path):
                 opencode_db_path=tmp_path / "opencode-missing.db",
                 workbuddy_dir=tmp_path / "workbuddy-missing",
                 qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
+                qoder_config_dir=tmp_path / "qoder-missing",
             )
         )
     )

@@ -58,6 +58,7 @@ def _client(make_db, rows, tmp_path, prices=None, raw=None, fx=None):
             opencode_db_path=tmp_path / "opencode-missing.db",
             workbuddy_dir=tmp_path / "workbuddy-missing",
             qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
+            qoder_config_dir=tmp_path / "qoder-missing",
         )
     )
     return TestClient(app)
@@ -209,6 +210,7 @@ def test_price_edit_takes_effect_without_restart(make_db, tmp_path):
                 opencode_db_path=tmp_path / "opencode-missing.db",
                 workbuddy_dir=tmp_path / "workbuddy-missing",
                 qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
+                qoder_config_dir=tmp_path / "qoder-missing",
             )
         )
     )
