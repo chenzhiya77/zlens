@@ -1,8 +1,21 @@
 import { Fragment, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { aliasKey, displayName } from "../lib/alias";
-import type { ModelUsageSummary, OverviewTotals, SortColumn } from "../lib/api";
+import { fetchPricing, type ModelUsageSummary, type OverviewTotals, type SortColumn } from "../lib/api";
 import { formatCost, formatCredits, formatTokens } from "../lib/format";
+
+/** 买断价的三档:— 是「不是买断行」(价格表里留空),¥0.00 是真零(免费套餐),
+ *  金额是已付清的钱。它与成本列永不相加——付出去的钱和烧掉的钱是两个问题。 */
+function BuyoutText({ amount }: { amount: number | null }) {
+  if (amount === null) {
+    return <span className="text-zinc-600">—</span>;
+  }
+  if (amount === 0) {
+    return <span className="text-zinc-600">{formatCost(amount)}</span>;
+  }
+  return <span>{formatCost(amount)}</span>;
+}
 
 /** 积分列的两档表情:null 是「该来源不报积分」(— 变暗),数值含真 0(混元免费行)
  * 都如实显示两位小数;它属于第三笔账,与成本列永不相加。 */
@@ -91,6 +104,7 @@ export default function ModelTable({
   totals,
   modelCount,
   creditTotal,
+  buyoutTotal,
   groupBySource = false,
 }: {
   models: ModelUsageSummary[];
@@ -102,11 +116,20 @@ export default function ModelTable({
   totals?: OverviewTotals | null;
   modelCount?: number;
   creditTotal?: number | null;
+  /** 买断支出合计(后端算),只进合计行;null = 价格表没有买断行。 */
+  buyoutTotal?: number | null;
   /** 按来源(使用的 agent)分组渲染,组头可折叠(价格表分组头同款形式)。 */
   groupBySource?: boolean;
 }) {
   const labelSpan = onAlias ? 3 : 2;
   const [collapsedSources, setCollapsedSources] = useState<Set<string>>(new Set());
+  // 买断价挂在价格表的渠道行上(用量行不带),按渠道键取;与「现总价」一样
+  // 只读后端,不在前端重算。
+  const pricingQuery = useQuery({ queryKey: ["pricing"], queryFn: fetchPricing });
+  const buyoutByKey = new Map<string, number | null>();
+  for (const [key, price] of Object.entries(pricingQuery.data?.models ?? {})) {
+    buyoutByKey.set(key, price.buyout_amount);
+  }
 
   // 分组渲染(v3 用户反馈):总览明细按来源分列——不同 agent 的账并排看,组头
   // 可折叠。组间按当前排序键的组内合计降序(排序语义在分组下依然成立),组内
@@ -209,12 +232,18 @@ export default function ModelTable({
         </td>
         <td
           className="py-2 pr-4 text-right tabular-nums"
-          title="第三笔账:该来源上报的实扣积分(与 token 成本互不折算);— 表示该来源不报积分"
+          title="为该渠道一次性买断/套餐付的钱(人民币)；— 表示不是买断行"
         >
-          <CreditsText credits={row.credits} />
+          <BuyoutText amount={buyoutByKey.get(key) ?? null} />
         </td>
         <td className="py-2 pr-4 text-right tabular-nums">
           <CostText cost={row.estimated_cost} />
+        </td>
+        <td
+          className="py-2 pr-4 text-right tabular-nums"
+          title="第三笔账:该来源上报的实扣积分(与 token 成本互不折算);— 表示该来源不报积分"
+        >
+          <CreditsText credits={row.credits} />
         </td>
       </tr>
     );
@@ -228,7 +257,7 @@ export default function ModelTable({
       {/* 表格比栏宽时在自己的壳里横滚:此前 w-full 表格的最小宽由内容决定,
           压窄页面会穿过容器顶出文档级横向滚动。 */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
               <tr className="border-b border-zinc-800 bg-zinc-950 text-left text-xs text-zinc-500">
                 <th className="py-2 pl-4 pr-4 font-medium">来源</th>
@@ -241,9 +270,9 @@ export default function ModelTable({
                     {col.key === "estimated_cost" && (
                       <th
                         className="py-2 pr-4 text-right font-medium"
-                        title="第三笔账:来源上报的实扣积分(原价/折扣差额与标价值见总览卡片);— 表示该来源不报积分"
+                        title="为该渠道一次性买断/套餐付的钱(人民币)，在价格表的「买断价」列维护；— 表示不是买断行，与成本永不相加"
                       >
-                        积分
+                        买断价 ¥
                       </th>
                     )}
                     <SortableTh
@@ -253,6 +282,14 @@ export default function ModelTable({
                       order={order}
                       onSort={onSort}
                     />
+                    {col.key === "estimated_cost" && (
+                      <th
+                        className="py-2 pr-4 text-right font-medium"
+                        title="第三笔账:来源上报的实扣积分(原价/折扣差额与标价值见总览卡片);— 表示该来源不报积分"
+                      >
+                        积分
+                      </th>
+                    )}
                   </Fragment>
                 ))}
               </tr>
@@ -294,10 +331,13 @@ export default function ModelTable({
                   {formatTokens(totals.total_tokens)}
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">
-                  <CreditsText credits={creditTotal ?? null} />
+                  <BuyoutText amount={buyoutTotal ?? null} />
                 </td>
                 <td className="py-2 pr-4 text-right tabular-nums">
                   <CostText cost={totals.estimated_cost} />
+                </td>
+                <td className="py-2 pr-4 text-right tabular-nums">
+                  <CreditsText credits={creditTotal ?? null} />
                 </td>
               </tr>
             </tfoot>

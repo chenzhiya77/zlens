@@ -435,6 +435,8 @@ export default function Overview() {
           totals={o.totals}
           modelCount={o.by_model.length}
           creditTotal={o.credit_total}
+          buyoutTotal={o.buyout_total}
+          groupBySource
         />
         {/* token 口径提示(T36):不报 token 的来源(如 Qoder CN)不计入合计,
             必须显式标注,禁止静默相加;它们的用量看「积分」列。 */}
