@@ -106,10 +106,24 @@ class MultiSource:
             first_request_at=min(firsts) if firsts else None,
             last_request_at=max(lasts) if lasts else None,
             generated_at=datetime.now().astimezone(),
+            # Adapter-declared traits, unioned: which selected sources report
+            # credits / tokens at all (an empty union = none does).
+            credit_reporting_sources=sorted({s for m in metas for s in m.credit_reporting_sources}),
+            token_reporting_sources=sorted({s for m in metas for s in m.token_reporting_sources}),
         )
 
     def overview(self, window: DateWindow | None = None) -> Overview:
         parts = [a.overview(window) for a in self._active_or_raise()]
+        # Credits merge by "ignore-null sum": a source not reporting credits has
+        # no such ledger (ZCode), it is not missing data — so its absence never
+        # poisons the total, and the reporting sources ride along so the UI can
+        # scope the number ("仅含 N 个上报积分的来源"). Token totals stay plain
+        # sums, but tokens_reported flips to False when any contributing row
+        # came from a non-token-reporting source: that total is then partial by
+        # construction and must be labeled as such, never silently added.
+        rows = [row for p in parts for row in p.by_model]
+        credit_rows = [row for row in rows if row.credits is not None]
+        original_rows = [row for row in credit_rows if row.original_credits is not None]
         return Overview(
             request_count=sum(p.request_count for p in parts),
             input_tokens=sum(p.input_tokens for p in parts),
@@ -118,6 +132,16 @@ class MultiSource:
             cache_creation_tokens=sum(p.cache_creation_tokens for p in parts),
             cache_read_tokens=sum(p.cache_read_tokens for p in parts),
             total_tokens=sum(p.total_tokens for p in parts),
+            credits=(round(sum(row.credits for row in credit_rows), 6) if credit_rows else None),
+            original_credits=(
+                round(sum(row.original_credits for row in original_rows), 6)
+                if original_rows
+                else None
+            ),
+            tokens_reported=all(row.tokens_reported for row in rows),
+            credits_reported=any(row.credits_reported for row in rows),
+            credit_reporting_sources=sorted({row.source for row in rows if row.credits_reported}),
+            token_reporting_sources=sorted({row.source for row in rows if row.tokens_reported}),
             by_model=sorted(
                 (row for p in parts for row in p.by_model),
                 key=lambda m: m.total_tokens,

@@ -19,12 +19,14 @@ pricing typo must never break the app.
 """
 
 import json
+import math
 from collections.abc import Callable
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from zlens.sources.models import (
+    CreditValueCny,
     DailyModelUsage,
     DailyTrends,
     DailyUsage,
@@ -38,6 +40,11 @@ from zlens.sources.models import (
 )
 
 _TOKENS_PER_PRICE_UNIT = 1_000_000
+
+# Basis keys of `credit_prices` (`source|basis`). Both rates are real prices
+# answering different questions (subscription-equivalent vs add-on-pack), so
+# they coexist and are rendered side by side — never auto-picked-low.
+_CREDIT_BASES = frozenset({"plan", "pack"})
 
 _SUMMARY_KEYS = (
     "request_count",
@@ -61,14 +68,62 @@ class ModelPrice(BaseModel):
     buyout_amount: float | None = None
 
 
+class CreditPrice(BaseModel):
+    """List price of one credit for a source (¥/积分), keyed `source|basis`.
+
+    It prices the third ledger (`credits`) into `credit_value_cny` — a
+    list-price conversion, never actual spend, and never a token price.
+    """
+
+    cny_per_credit: float
+    note: str | None = None
+
+
 class PriceTable(BaseModel):
+    # Version is informational: v2 files carry `credit_prices`, v1 files parse
+    # identically without it (the field default keeps an empty table at v1 —
+    # the shape is additive, nothing reads the number to branch).
     version: int = 1
     # Keyed by channel (see model_key), never by bare model_id. All prices CNY.
     models: dict[str, ModelPrice] = {}
+    # Credit list prices keyed `source|basis`; invalid entries are dropped at
+    # parse time (a pricing typo must never break the app — same degrade
+    # discipline as the file-level fallback below).
+    credit_prices: dict[str, CreditPrice] = {}
     # Rate the pricing form folds $ prices with at entry time. Never used in
     # costing, and deliberately without a default: inventing a market rate would
     # fabricate spend.
     fx_usd_cny: float | None = None
+
+    @field_validator("credit_prices", mode="before")
+    @classmethod
+    def _drop_invalid_credit_prices(cls, value: object) -> dict[str, object]:
+        """Drop invalid entries instead of failing the whole table.
+
+        A `credit_prices` entry must be `"<source>|<basis>": {cny_per_credit > 0}`
+        with basis ∈ {plan, pack}; anything else (wrong basis, non-positive or
+        non-numeric rate, non-dict payload) is discarded here so a typo costs
+        that entry, never the app.
+        """
+        if not isinstance(value, dict):
+            return {}
+        kept: dict[str, dict[str, object]] = {}
+        for key, entry in value.items():
+            if not isinstance(key, str) or not isinstance(entry, dict):
+                continue
+            source, _, basis = key.rpartition("|")
+            if not source or basis not in _CREDIT_BASES:
+                continue
+            rate = entry.get("cny_per_credit")
+            if (
+                isinstance(rate, bool)
+                or not isinstance(rate, (int, float))
+                or not math.isfinite(rate)
+                or rate <= 0
+            ):
+                continue
+            kept[key] = {"cny_per_credit": float(rate), "note": entry.get("note")}
+        return kept
 
     @classmethod
     def load(cls, path: Path) -> "PriceTable":
@@ -81,6 +136,10 @@ class PriceTable(BaseModel):
 
     def price_for(self, key: str) -> ModelPrice | None:
         return self.models.get(key)
+
+    def credit_price_for(self, source: str, basis: str) -> CreditPrice | None:
+        """¥/credit for one source under one basis; None = not filled."""
+        return self.credit_prices.get(f"{source}|{basis}")
 
     def buyout_total(self) -> float | None:
         """Money already paid for buyout/plan rows, independent of any usage.
@@ -121,6 +180,10 @@ class PriceTable(BaseModel):
 
 
 def _cost_of(item, table: PriceTable) -> float | None:
+    if not item.tokens_reported:
+        # Placeholder zeros must never be priced: a credits-billed source has no
+        # token tiers, its money lives in credit_value_cny (the third ledger).
+        return None
     return table.estimate_cost(
         model_key(item.source, item.provider_id, item.model_id),
         input_tokens=item.input_tokens,
@@ -147,6 +210,33 @@ def _cache_hit_rate(cache_read: int, cache_creation: int, billed_input: int) -> 
     return round(cache_read / denominator, 6)
 
 
+def _credit_value_cny(credit_rows, table: PriceTable) -> CreditValueCny | None:
+    """List-price conversion of consumed credits, per basis (the third ledger).
+
+    A credit-reporting source missing the basis price nulls exactly that basis —
+    pricing only some sources would systematically understate the bill. The
+    result is a list-price figure (标价值), never actual spend, and never a
+    token-side amount.
+    """
+    if not credit_rows:
+        return None
+    sources = {row.source for row in credit_rows}
+    values: dict[str, float | None] = {}
+    for basis in sorted(_CREDIT_BASES):
+        prices = [table.credit_price_for(source, basis) for source in sources]
+        if any(price is None for price in prices):
+            values[basis] = None
+            continue
+        values[basis] = round(
+            sum(
+                row.credits * table.credit_price_for(row.source, basis).cny_per_credit
+                for row in credit_rows
+            ),
+            6,
+        )
+    return CreditValueCny(**values)
+
+
 def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
     """Attach per-model costs; the total always ships — unpriced rows count as ¥0
     (an unfilled price reads as free), and rows keep their null cost as the
@@ -154,7 +244,10 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
 
     The buyout total rides along ungated: it is money already paid for a plan, so a
     missing per-token price cannot make it unknown. The two figures answer different
-    questions and are never added together.
+    questions and are never added together — and the third ledger
+    (`credit_total`/`credit_value_cny`) rides along the same way: credits are
+    priced from `credit_prices`, never folded into `estimated_cost`, and none of
+    the three totals is ever added to another.
     """
     by_model = attach_model_costs(overview.by_model, table)
     by_model = [
@@ -168,6 +261,17 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
         for m in by_model
     ]
     total = round(sum(m.estimated_cost or 0 for m in by_model), 6)
+    credit_rows = [m for m in by_model if m.credits is not None]
+    credit_total = round(sum(m.credits for m in credit_rows), 6) if credit_rows else None
+    original_rows = [m for m in credit_rows if m.original_credits is not None]
+    credit_original_total = (
+        round(sum(m.original_credits for m in original_rows), 6) if original_rows else None
+    )
+    discount_credits = (
+        round(credit_original_total - credit_total, 6)
+        if credit_total is not None and credit_original_total is not None
+        else None
+    )
     totals = OverviewTotals(
         request_count=overview.request_count,
         input_tokens=overview.input_tokens,
@@ -187,6 +291,10 @@ def enrich_overview(overview: Overview, table: PriceTable) -> Overview:
                 overview.cache_read_tokens, overview.cache_creation_tokens, overview.input_tokens
             ),
             "totals": totals,
+            "credit_total": credit_total,
+            "credit_original_total": credit_original_total,
+            "discount_credits": discount_credits,
+            "credit_value_cny": _credit_value_cny(credit_rows, table),
         },
     )
 
@@ -202,6 +310,10 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
     titles: dict[str, str] = {}
     project_sources: dict[str, set[str]] = {}
     project_costs: dict[str, float] = {}
+    project_credits: dict[str, float] = {}
+    project_original: dict[str, float] = {}
+    project_tokens_ok: dict[str, bool] = {}
+    project_credits_rep: dict[str, bool] = {}
     for row in priced_rows:
         acc = totals.setdefault(row.directory, dict.fromkeys(_SUMMARY_KEYS, 0))
         titles.setdefault(row.directory, row.title)
@@ -211,6 +323,18 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
         project_costs[row.directory] = project_costs.get(row.directory, 0.0) + (
             row.estimated_cost or 0
         )
+        if row.credits is not None:
+            project_credits[row.directory] = project_credits.get(row.directory, 0.0) + row.credits
+        if row.original_credits is not None:
+            project_original[row.directory] = project_original.get(row.directory, 0.0) + (
+                row.original_credits
+            )
+        project_tokens_ok[row.directory] = (
+            project_tokens_ok.get(row.directory, True) and row.tokens_reported
+        )
+        project_credits_rep[row.directory] = (
+            project_credits_rep.get(row.directory, False) or row.credits_reported
+        )
 
     projects = [
         ProjectUsage(
@@ -218,6 +342,14 @@ def fold_projects(rows: list[ProjectModelUsage], table: PriceTable) -> ProjectsR
             title=titles[directory],
             source="+".join(sorted(project_sources[directory])),
             estimated_cost=round(project_costs[directory], 6),
+            credits=(
+                round(project_credits[directory], 6) if directory in project_credits else None
+            ),
+            original_credits=(
+                round(project_original[directory], 6) if directory in project_original else None
+            ),
+            tokens_reported=project_tokens_ok.get(directory, True),
+            credits_reported=project_credits_rep.get(directory, False),
             **totals[directory],
         )
         for directory in sorted(totals, key=lambda d: totals[d]["total_tokens"], reverse=True)
@@ -236,6 +368,10 @@ def _fold_usage(
     totals: dict[str, dict[str, int]] = {}
     costs: dict[str, float] = {}
     sources: dict[str, set[str]] = {}
+    credits_by: dict[str, float] = {}
+    original_by: dict[str, float] = {}
+    tokens_ok: dict[str, bool] = {}
+    credits_reported: dict[str, bool] = {}
     for row in by_model:
         key = bucket(row)
         acc = totals.setdefault(key, dict.fromkeys(_SUMMARY_KEYS, 0))
@@ -243,12 +379,25 @@ def _fold_usage(
         for key_field in _SUMMARY_KEYS:
             acc[key_field] += getattr(row, key_field)
         costs[key] = costs.get(key, 0.0) + (row.estimated_cost or 0)
+        # Credits fold by ignore-null sum (a source without a credit ledger is
+        # not missing data); the flags fold by all/any so a bucket mixing in a
+        # non-token-reporting row is labeled partial.
+        if row.credits is not None:
+            credits_by[key] = credits_by.get(key, 0.0) + row.credits
+        if row.original_credits is not None:
+            original_by[key] = original_by.get(key, 0.0) + row.original_credits
+        tokens_ok[key] = tokens_ok.get(key, True) and row.tokens_reported
+        credits_reported[key] = credits_reported.get(key, False) or row.credits_reported
 
     usage = [
         DailyUsage(
             day=key,
             source="+".join(sorted(sources[key])),
             estimated_cost=round(costs[key], 6),
+            credits=round(credits_by[key], 6) if key in credits_by else None,
+            original_credits=round(original_by[key], 6) if key in original_by else None,
+            tokens_reported=tokens_ok.get(key, True),
+            credits_reported=credits_reported.get(key, False),
             **totals[key],
         )
         for key in sorted(totals)

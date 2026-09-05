@@ -11,6 +11,14 @@ breakdown of it, never an extra bucket), and `cache_creation_tokens` /
 Costing multiplies each bucket by its own unit price, so a source that reports the
 cached prefix *inside* its input must subtract it in its adapter — leaving it
 nested charges those tokens twice, at the full input price.
+
+Credits are the third ledger (v3): `credits`/`original_credits` carry
+upstream-reported credit amounts (Qoder CN CLI, WorkBuddy) and are priced via
+`credit_prices` (`source|basis` keys), never folded into `estimated_cost`.
+`tokens_reported=False` marks sources whose token buckets are structurally
+absent (upstream never sends tokens): the zeros are placeholders, must not be
+priced, and the source must surface in "未计入 token 口径" hints. `None` means
+"not reported" — strictly distinct from 0.
 """
 
 from dataclasses import dataclass
@@ -96,6 +104,19 @@ class ModelUsageSummary(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+    # Third ledger (v3): upstream-reported credits, priced via `credit_prices`
+    # (source|basis), never folded into estimated_cost. None = the source does
+    # not report credits — strictly distinct from 0.0 (a real zero, e.g. a free
+    # in-house model row).
+    credits: float | None = None
+    # List-price credits before the per-row discount (Qoder CN reports both).
+    original_credits: float | None = None
+    # False = the token buckets above are structurally absent (upstream never
+    # sends tokens): the zeros are placeholders, must not be priced, and the
+    # source belongs in "未计入 token 口径" hints.
+    tokens_reported: bool = True
+    # Adapter declaration: this source reports credits at all.
+    credits_reported: bool = False
     # cache_read / (input + cache_read + cache_creation): share of the prompt
     # tokens served from cache. Denominator 0 -> None (not 0%, not 100%).
     cache_hit_rate: float | None = None
@@ -180,6 +201,19 @@ class PeriodDelta(BaseModel):
     estimated_cost: MetricDelta
 
 
+class CreditValueCny(BaseModel):
+    """List-price conversion of consumed credits, per basis (v3 third ledger).
+
+    `plan` = subscription-equivalent rate, `pack` = add-on-pack rate; both are
+    real prices answering different questions and render side by side, never
+    auto-picked-low. A credit-reporting source missing the basis price nulls
+    exactly that basis (half a bill would systematically understate).
+    """
+
+    plan: float | None = None
+    pack: float | None = None
+
+
 class Overview(BaseModel):
     request_count: int
     input_tokens: int
@@ -203,6 +237,23 @@ class Overview(BaseModel):
     # a missing previous period must vanish, not render as "+300%".
     delta: PeriodDelta | None = None
     totals: OverviewTotals | None = None
+    # Third ledger (v3) — field discipline per ModelUsageSummary; the aggregates
+    # are derived by the cost layer, never by the client (现总价 discipline).
+    # `plan`/`pack` degrade independently: a missing price for one basis nulls
+    # exactly that basis. All-None = no source reported credits in scope.
+    credits: float | None = None
+    original_credits: float | None = None
+    tokens_reported: bool = True
+    credits_reported: bool = False
+    credit_total: float | None = None
+    credit_original_total: float | None = None
+    discount_credits: float | None = None
+    credit_value_cny: CreditValueCny | None = None
+    # Row-derived per window: sources with any credits_reported row vs any
+    # tokens_reported row. The complement of the latter against active sources
+    # is the "未计入 token 口径" hint list.
+    credit_reporting_sources: list[str] = []
+    token_reporting_sources: list[str] = []
     by_model: list[ModelUsageSummary]
 
 
@@ -232,6 +283,14 @@ class MetaInfo(BaseModel):
     generated_at: datetime
     # Channel keys (see model_key) that have no price entry yet.
     unpriced_models: list[str] = []
+    # Adapter-declared traits, unioned across the selected scope: which sources
+    # report credits / tokens at all. The complement of token_reporting_sources
+    # against active sources is the "未计入 token 口径" hint list.
+    # unpriced_credits lists credit-reporting sources with neither basis priced
+    # in `credit_prices` (the credit-side analogue of unpriced_models).
+    credit_reporting_sources: list[str] = []
+    token_reporting_sources: list[str] = []
+    unpriced_credits: list[str] = []
 
 
 class DailyUsage(BaseModel):
@@ -245,6 +304,10 @@ class DailyUsage(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+    credits: float | None = None
+    original_credits: float | None = None
+    tokens_reported: bool = True
+    credits_reported: bool = False
 
 
 class DailyModelUsage(BaseModel):
@@ -260,6 +323,10 @@ class DailyModelUsage(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+    credits: float | None = None
+    original_credits: float | None = None
+    tokens_reported: bool = True
+    credits_reported: bool = False
 
 
 class DailyTrends(BaseModel):
@@ -286,6 +353,10 @@ class ProjectModelUsage(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+    credits: float | None = None
+    original_credits: float | None = None
+    tokens_reported: bool = True
+    credits_reported: bool = False
 
 
 class ProjectUsage(BaseModel):
@@ -300,6 +371,10 @@ class ProjectUsage(BaseModel):
     cache_read_tokens: int
     total_tokens: int
     estimated_cost: float | None = None
+    credits: float | None = None
+    original_credits: float | None = None
+    tokens_reported: bool = True
+    credits_reported: bool = False
 
 
 class ProjectsReport(BaseModel):

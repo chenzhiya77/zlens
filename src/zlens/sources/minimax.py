@@ -143,6 +143,7 @@ class MinimaxSource:
             first_request_at=ms_to_datetime(min(stamps)) if stamps else None,
             last_request_at=ms_to_datetime(max(stamps)) if stamps else None,
             generated_at=datetime.now().astimezone(),
+            token_reporting_sources=[self.id],
         )
 
     def overview(self, window: DateWindow | None = None) -> Overview:

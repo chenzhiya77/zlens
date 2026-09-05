@@ -176,6 +176,7 @@ class ZcodeSource:
             first_request_at=_ms_to_datetime(row["first_ms"]),
             last_request_at=_ms_to_datetime(row["last_ms"]),
             generated_at=datetime.now().astimezone(),
+            token_reporting_sources=[self.id],
         )
 
     def overview(self, window: DateWindow | None = None) -> Overview:
