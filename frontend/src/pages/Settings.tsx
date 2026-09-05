@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { fetchVlmSettings, saveVlmSettings, testVlm } from "../lib/api";
 import { ErrorBlock, LoadingBlock } from "../components/states";
+import {
+  captureCreditRates,
+  fetchCreditRates,
+  fetchVlmSettings,
+  saveVlmSettings,
+  testVlm,
+} from "../lib/api";
+import { formatDateTime } from "../lib/format";
 import {
   ACCENT_OPTIONS,
   getAccent,
@@ -21,6 +28,7 @@ import {
 export default function Settings() {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["vlm-settings"], queryFn: fetchVlmSettings });
+  const ratesQuery = useQuery({ queryKey: ["credit-rates"], queryFn: fetchCreditRates });
 
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
@@ -61,6 +69,17 @@ export default function Settings() {
     onError: (err) => {
       setError(err instanceof Error ? err.message : "连接测试失败");
       setResult(null);
+    },
+  });
+
+  const ratesMutation = useMutation({
+    mutationFn: captureCreditRates,
+    onSuccess: () => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: ["credit-rates"] });
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : "抓取失败");
     },
   });
 
@@ -210,6 +229,93 @@ export default function Settings() {
           </p>
         </div>
       )}
+
+      {/* 计价系数快照(v3 T34):从本机客户端缓存抓厂商倍率。非官方口径、
+          纯展示与誊抄,永不参与金额计算——按钮是用户显式动作,只写一个本地文件。 */}
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-medium text-zinc-200">计价系数快照</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              从本机 Qoder IDE / Trae CN 的客户端缓存抓取各档位扣分倍率。
+              <span className="text-amber-400/90">非官方口径,只用于展示与誊抄,永不参与金额计算</span>;
+              只读白名单计价字段,凭据类字段与 secret:// 键一律不碰。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => ratesMutation.mutate()}
+            disabled={ratesMutation.isPending}
+            className="shrink-0 rounded-md bg-sky-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+          >
+            {ratesMutation.isPending ? "正在抓取…" : "抓取一次"}
+          </button>
+        </div>
+
+        {ratesQuery.data?.captured_at == null ? (
+          <p className="mt-4 text-xs text-zinc-600">还没有抓取过快照。</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-zinc-500">
+              抓取于 {formatDateTime(ratesQuery.data.captured_at)} · 来源{" "}
+              {ratesQuery.data.source} · 共 {ratesQuery.data.entries.length} 档
+            </p>
+            {ratesQuery.data.warnings.length > 0 && (
+              <div className="space-y-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+                {ratesQuery.data.warnings.map((w) => (
+                  <p key={w.model_id} className="text-amber-300">
+                    ⚠ {w.model_id}:{w.message}
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
+                    <th className="py-2 pr-4 font-medium">档位</th>
+                    <th className="py-2 pr-4 font-medium">显示名</th>
+                    <th className="py-2 pr-4 text-right font-medium">扣分倍率</th>
+                    <th className="py-2 pr-4 text-right font-medium">原价倍率</th>
+                    <th className="py-2 pr-4 text-right font-medium">最大输入</th>
+                    <th className="py-2 font-medium">活动</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ratesQuery.data.entries.map((entry) => (
+                    <tr key={entry.model_id} className="border-b border-zinc-800/60">
+                      <td className="py-1.5 pr-4 font-mono text-xs text-zinc-300">
+                        {entry.model_id}
+                      </td>
+                      <td className="py-1.5 pr-4 text-xs text-zinc-400">
+                        {entry.display_name ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right font-mono text-xs tabular-nums text-zinc-200">
+                        {entry.price_factor ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right font-mono text-xs tabular-nums text-zinc-500">
+                        {entry.original_price_factor ?? "—"}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right font-mono text-xs tabular-nums text-zinc-500">
+                        {entry.max_input_tokens?.toLocaleString("zh-CN") ?? "—"}
+                      </td>
+                      <td className="py-1.5 text-xs text-zinc-500">{entry.promotion ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-zinc-600">
+              来源文件:{ratesQuery.data.provenance.join(" ; ")}
+            </p>
+          </div>
+        )}
+        {ratesMutation.isError && (
+          <p className="mt-4 text-xs text-rose-400">
+            {ratesMutation.error instanceof Error ? ratesMutation.error.message : "抓取失败"}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

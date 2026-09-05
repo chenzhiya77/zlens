@@ -263,6 +263,43 @@ export interface ProjectUsage {
 export const fetchProjects = () =>
   getJson<{ projects: ProjectUsage[] }>("/api/projects");
 
+/** 客户端缓存里的厂商计价系数(非官方口径,纯展示,永不参与金额计算)。 */
+export interface RateEntry {
+  model_id: string;
+  display_name: string | null;
+  price_factor: number | null;
+  original_price_factor: number | null;
+  max_input_tokens: number | null;
+  context_tiers: number[] | null;
+  promotion: string | null;
+}
+
+export interface RateWarning {
+  model_id: string;
+  message: string;
+}
+
+export interface CreditRatesSnapshot {
+  version: number;
+  captured_at: string | null;
+  source: string;
+  kind: string;
+  provenance: string[];
+  entries: RateEntry[];
+  warnings: RateWarning[];
+}
+
+export const fetchCreditRates = () => getJson<CreditRatesSnapshot>("/api/credit-rates");
+
+export const captureCreditRates = () =>
+  fetch("/api/credit-rates/capture", { method: "POST" }).then(async (res) => {
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      throw new Error(body.error?.message ?? "抓取计价系数失败");
+    }
+    return (await res.json()) as CreditRatesSnapshot;
+  });
+
 export interface LatencyStats {
   sample_count: number;
   p50_ms: number;

@@ -6,12 +6,23 @@ config_json_path file, never in code or in pricing.json.
 """
 
 import json
+import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_DB_PATH = Path.home() / ".zcode" / "cli" / "db" / "db.sqlite"
+
+
+def _app_data_dir() -> Path:
+    """VS Code-family per-user config root (state.vscdb lives under <app>/User)."""
+    if sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", str(Path.home() / "AppData" / "Roaming")))
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support"
+    return Path.home() / ".config"
 
 
 class Settings(BaseSettings):
@@ -32,6 +43,15 @@ class Settings(BaseSettings):
     # International Qoder CLI root: same shape as the CN CLI, separate source id
     # (the two products' credits are priced differently and never merge).
     qoder_config_dir: Path = Path.home() / ".qoder"
+    # v3 D4 系数快照:两处明文客户端缓存 + 快照落点(gitignored)。抓取是用户显式
+    # 动作,快照只用于展示与誊抄,永不参与金额计算。
+    qoder_ide_state_vscdb: Path = (
+        _app_data_dir() / "Qoder" / "User" / "globalStorage" / "state.vscdb"
+    )
+    trae_cn_state_vscdb: Path = (
+        _app_data_dir() / "Trae CN" / "User" / "globalStorage" / "state.vscdb"
+    )
+    credit_rates_path: Path = Path("credit_rates.json")
 
     # Optional VLM used for screenshot price extraction (OpenAI-compatible chat).
     vlm_base_url: str = ""

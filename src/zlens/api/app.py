@@ -23,6 +23,7 @@ from zlens.api.routers import (
     performance,
     pricing,
     projects,
+    rates,
     trends,
 )
 from zlens.api.routers import settings as settings_router
@@ -71,6 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(performance.router)
     app.include_router(health.router)
     app.include_router(pricing.router)
+    app.include_router(rates.router)
     app.include_router(settings_router.router)
     app.include_router(export.router)
 

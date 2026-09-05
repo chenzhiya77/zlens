@@ -250,3 +250,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VLM 配置保存后「测试连接 / 截图识别」立即生效(重新叠加本机配置,不再使用服务启动时快照)。
 - 浏览器自动填充会把输入框(如 VLM API Key)涂成白色底,现与页面主题一致(深/浅色均保持)。
 - 密钥安全:`zlens.config.json`(含 VLM Key)不再纳入版本库跟踪(gitignore)。
+- 计价系数快照(T34):设置页「抓取一次」从本机 Qoder IDE / Trae CN 的客户端缓存
+  (state.vscdb)按**字段白名单**抓取各档位扣分倍率,落 gitignored `credit_rates.json`;
+  快照非官方口径(实证 `efficient` 0.5→0.3 漂移、`cmodel` 3.2× 越界触发告警),
+  界面标注抓取时间与来源文件,**永不参与金额计算**。安全边界为测试断言级:
+  `secret://` 键不读、凭据类字段名(ak/sk/api_key/secret/base_url/auth_type/jwt/token)
+  不入快照、终端状态缓冲不扫;Trae 的 BYOK 自定义模型(非 preset)整条排除。
