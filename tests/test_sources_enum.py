@@ -44,6 +44,7 @@ def test_sources_list_includes_unavailable_with_reason(client_factory):
         "workbuddy",
         "qoder_cn",
         "qoder",
+        "claude",
     ]
     by_id = {s["id"]: s for s in body["sources"]}
     assert by_id["zcode"]["available"] is True
@@ -108,5 +109,6 @@ def test_enumeration_survives_source_selection_and_window(client_factory):
         "workbuddy",
         "qoder_cn",
         "qoder",
+        "claude",
     ]
     assert body["request_count"] == 1

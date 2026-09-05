@@ -262,6 +262,8 @@ def make_settings(
         qoder_cn=None,
         qoder_cn_last_cleanup=False,
         qoder=None,
+        claude=None,
+        claude_last_cleanup=False,
         pricing_path=None,
         config_json_path=None,
     ):
@@ -287,6 +289,11 @@ def make_settings(
             ),
             qoder_config_dir=(
                 make_qoder_cn(qoder, root_name="qoder") if qoder else tmp_path / "qoder-missing"
+            ),
+            claude_config_dir=(
+                make_qoder_cn(claude, root_name="claude", last_cleanup=claude_last_cleanup)
+                if claude
+                else tmp_path / "claude-missing"
             ),
             pricing_path=(pricing_path or tmp_path / "pricing.json"),
             config_json_path=(config_json_path or tmp_path / "zlens.config.json"),

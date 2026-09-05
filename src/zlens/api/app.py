@@ -29,6 +29,7 @@ from zlens.api.routers import (
 from zlens.api.routers import settings as settings_router
 from zlens.core.config import Settings, load_settings, with_config_overlay
 from zlens.sources.base import SourceError, SourceUnavailable
+from zlens.sources.claude import ClaudeSource
 from zlens.sources.minimax import MinimaxSource
 from zlens.sources.multi import MultiSource
 from zlens.sources.opencode import OpencodeSource
@@ -53,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             WorkbuddySource(settings.workbuddy_dir),
             QoderCnSource(settings.qoder_cn_config_dir),
             QoderSource(settings.qoder_config_dir),
+            ClaudeSource(settings.claude_config_dir),
         ]
     )
 

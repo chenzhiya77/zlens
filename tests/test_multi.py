@@ -84,6 +84,7 @@ def test_broken_zcode_does_not_sink_other_sources(client_factory, tmp_path):
                 workbuddy_dir=tmp_path / "workbuddy-missing",
                 qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
                 qoder_config_dir=tmp_path / "qoder-missing",
+                claude_config_dir=tmp_path / "claude-missing",
             )
         )
     )

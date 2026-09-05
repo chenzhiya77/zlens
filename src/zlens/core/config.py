@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # International Qoder CLI root: same shape as the CN CLI, separate source id
     # (the two products' credits are priced differently and never merge).
     qoder_config_dir: Path = Path.home() / ".qoder"
+    # Claude Code root: real token tiers (the transcript family Qoder derived
+    # from), streaming-dedup by message.id; .last-cleanup marks retention.
+    claude_config_dir: Path = Path.home() / ".claude"
     # v3 D4 系数快照:两处明文客户端缓存 + 快照落点(gitignored)。抓取是用户显式
     # 动作,快照只用于展示与誊抄,永不参与金额计算。
     qoder_ide_state_vscdb: Path = (

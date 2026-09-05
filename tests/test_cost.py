@@ -59,6 +59,7 @@ def _client(make_db, rows, tmp_path, prices=None, raw=None, fx=None):
             workbuddy_dir=tmp_path / "workbuddy-missing",
             qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
             qoder_config_dir=tmp_path / "qoder-missing",
+            claude_config_dir=tmp_path / "claude-missing",
         )
     )
     return TestClient(app)
@@ -211,6 +212,7 @@ def test_price_edit_takes_effect_without_restart(make_db, tmp_path):
                 workbuddy_dir=tmp_path / "workbuddy-missing",
                 qoder_cn_config_dir=tmp_path / "qoder-cn-missing",
                 qoder_config_dir=tmp_path / "qoder-missing",
+                claude_config_dir=tmp_path / "claude-missing",
             )
         )
     )

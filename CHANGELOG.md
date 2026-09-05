@@ -256,3 +256,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   界面标注抓取时间与来源文件,**永不参与金额计算**。安全边界为测试断言级:
   `secret://` 键不读、凭据类字段名(ak/sk/api_key/secret/base_url/auth_type/jwt/token)
   不入快照、终端状态缓冲不扫;Trae 的 BYOK 自定义模型(非 preset)整条排除。
+- Claude Code 适配器(T38):读 `~/.claude/projects/**` 本地 transcript(含 subagents),
+  真 token 四档直进既有管线(上游无 total 字段,契约 total = 四档相加)。核心是**流式去重**:
+  一条 API 响应拆成多条同 message.id 事件(逐位重放 / 全零占位 + 真用量),按 id 取
+  四档合计最大的一条——实测 549 行原始 usage 去重为 205 次计费调用,不处理会虚增 2.1 倍。
+  `.last-cleanup` 触发保留期提示(官方 cleanupPeriodDays,默认 30 天);模型名含斜杠
+  (stealth/ox-alpha)原样保留,渠道键 claude|claude|<model_id> 不受影响。
