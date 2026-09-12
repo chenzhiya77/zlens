@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>zlens · 运行质量（优化稿预览）</title>
+<style>
+  /* ============ 主题变量：镜像 frontend/src/index.css 的换肤体系 ============
+     深色为默认；html[data-mode="light"] 翻转色阶，与项目其余页面一致。 */
+  :root {
+    color-scheme: dark;
+    --bg-page: #0f1215;      /* zinc-950 */
+    --bg-card: #16191d;      /* zinc-900 */
+    --bg-panel: #1d2127;     /* chart-panel */
+    --bg-track: #262b31;     /* zinc-800 */
+    --border: #262b31;
+    --text-1: #e4e4e7;       /* zinc-200 */
+    --text-2: #a1a1aa;       /* zinc-400 */
+    --text-3: #71717a;       /* zinc-500 */
+    --accent: #38bdf8;       /* sky-400 */
+    --accent-strong: #0ea5e9;/* sky-500 */
+    --danger: #f43f5e;       /* rose-500 */
+    --ok: #34d399;           /* emerald-400 */
+    --shadow: none;
+    --seg-active-bg: #262b31;
+    --seg-active-text: #e4e4e7;
+  }
+  html[data-mode="light"] {
+    color-scheme: light;
+    --bg-page: #fafafa;      /* zinc-950(light) */
+    --bg-card: #ffffff;      /* zinc-900(light) */
+    --bg-panel: #f4f4f5;     /* chart-panel(light) */
+    --bg-track: #f4f4f5;
+    --border: #e4e4e7;       /* zinc-800(light) */
+    --text-1: #18181b;       /* zinc-100(light) */
+    --text-2: #52525b;       /* zinc-400(light) */
+    --text-3: #71717a;
+    --accent: #0284c7;       /* sky-600 */
+    --accent-strong: #0369a1;
+    --danger: #e11d48;       /* rose-400(light) */
+    --ok: #059669;           /* emerald-400(light) */
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --seg-active-bg: #ffffff;
+    --seg-active-text: #18181b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-1);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============ 应用外壳 ============ */
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---- 侧边栏 ---- */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 16px;
+    border-right: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; padding: 8px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); position: relative; flex-shrink: 0;
+  }
+  .logo-mark::after {
+    content: ""; position: absolute; left: 9px; top: 9px;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--bg-card);
+  }
+  .logo-name { font-size: 18px; font-weight: 700; line-height: 1.2; }
+  .logo-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .nav { display: flex; flex-direction: column; gap: 2px; margin-top: 20px; }
+  .nav-group { font-size: 11px; color: var(--text-3); padding: 12px 10px 4px; }
+  .nav-item {
+    padding: 10px; border-radius: 8px; color: var(--text-2);
+    text-decoration: none; transition: background 0.15s;
+  }
+  .nav-item:hover { background: var(--bg-panel); }
+  .nav-item.active {
+    background: var(--bg-panel); color: var(--accent); font-weight: 500;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---- 主内容 ---- */
+  .main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 20px;
+    padding: 28px;
+  }
+  .page-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .page-title { font-size: 20px; font-weight: 600; }
+  .page-sub { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .head-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  .seg {
+    display: flex; gap: 2px; padding: 3px;
+    background: var(--bg-panel); border-radius: 8px;
+  }
+  .seg-item {
+    padding: 6px 12px; border-radius: 6px; font-size: 13px;
+    color: var(--text-2); border: none; background: transparent;
+    cursor: pointer; font-family: inherit;
+  }
+  .seg-item.active {
+    background: var(--seg-active-bg); color: var(--seg-active-text);
+    font-weight: 500; box-shadow: var(--shadow);
+  }
+  .seg-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-radius: 8px; font-size: 12px;
+    color: var(--text-2); background: var(--bg-card);
+    border: 1px solid var(--border);
+  }
+  .pill button {
+    border: none; background: transparent; color: var(--accent);
+    font-family: inherit; font-size: 12px; cursor: pointer;
+  }
+  .theme-btn { cursor: pointer; }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---- 健康结论栏 ---- */
+  .health-strip {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 20px 24px; flex-wrap: wrap;
+  }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .status-dot.bad { background: var(--danger); }
+  .strip-div { width: 1px; height: 32px; background: var(--border); }
+  .strip-metric { display: flex; flex-direction: column; gap: 4px; }
+  .strip-metric .k { font-size: 12px; color: var(--text-2); }
+  .strip-metric .v { font-size: 22px; font-weight: 500; }
+  .strip-metric .v.danger { color: var(--danger); }
+
+  /* ---- 请求性能 ---- */
+  .perf-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .perf-card { flex: 1 1 420px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-note-r { font-size: 12px; color: var(--text-2); }
+  .lat-row { display: flex; align-items: center; gap: 12px; }
+  .lat-label { width: 32px; font-size: 12px; color: var(--text-2); }
+  .lat-track { flex: 1; height: 6px; border-radius: 3px; background: var(--bg-track); overflow: hidden; }
+  .lat-bar { height: 100%; border-radius: 3px; background: var(--accent-strong); }
+  .lat-val { width: 70px; text-align: right; font-size: 13px; font-weight: 500; }
+  .scale-note { font-size: 11px; color: var(--text-3); }
+
+  /* ---- 统计卡 ---- */
+  .stats-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .stat-card { flex: 1 1 280px; padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+  .stat-label { font-size: 13px; color: var(--text-2); }
+  .stat-value { font-size: 28px; font-weight: 500; }
+  .stat-value.danger { color: var(--danger); }
+  .stat-sub { font-size: 12px; color: var(--text-3); }
+
+  /* ---- 错误分布 ---- */
+  .error-card { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .err-row { display: flex; align-items: center; gap: 12px; }
+  .err-name {
+    width: 200px; flex-shrink: 0; font-size: 13px;
+    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .err-code { color: var(--text-3); font-size: 11px; margin-left: 6px; }
+  .err-barzone { flex: 1; min-width: 60px; }
+  .err-bar { height: 8px; border-radius: 4px; background: var(--danger); min-width: 3px; }
+  .err-count { width: 56px; text-align: right; font-size: 13px; font-weight: 500; }
+  .err-pct { width: 60px; text-align: right; font-size: 12px; color: var(--text-2); }
+
+  .footnote { font-size: 12px; color: var(--text-3); line-height: 1.6; }
+  .src-badge { font-size: 11px; padding: 2px 8px; border-radius: 9999px; background: var(--bg-panel); color: var(--text-3); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 侧边栏 -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div>
+        <div class="logo-name">zlens</div>
+        <div class="logo-sub">coding agent 用量透镜</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-item" href="#">总览</a>
+      <div class="nav-group">分析</div>
+      <a class="nav-item" href="#">用量分析</a>
+      <a class="nav-item active" href="#">运行质量</a>
+      <div class="nav-group">配置</div>
+      <a class="nav-item" href="#">价格表</a>
+      <a class="nav-item" href="#">设置</a>
+    </nav>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1 class="page-title">运行质量</h1>
+        <p class="page-sub" id="page-sub">累计口径 · 数据库共 — 次模型请求 <span class="src-badge" id="src-badge">加载中</span></p>
+      </div>
+      <div class="head-tools">
+        <div class="seg" role="tablist" aria-label="时间范围">
+          <button class="seg-item" disabled title="后端暂不支持时间窗口，待实现">近 1 小时</button>
+          <button class="seg-item" disabled title="后端暂不支持时间窗口，待实现">近 24 小时</button>
+          <button class="seg-item" disabled title="后端暂不支持时间窗口，待实现">近 7 天</button>
+          <button class="seg-item active">全部</button>
+        </div>
+        <div class="pill">自动刷新 · 5 分钟</div>
+        <button class="pill theme-btn" id="theme-toggle">切换浅色</button>
+      </div>
+    </header>
+
+    <!-- 健康结论栏 -->
+    <section class="card health-strip" id="health-strip"></section>
+
+    <!-- 请求性能 -->
+    <section class="perf-row" id="perf-row"></section>
+
+    <!-- 统计卡 -->
+    <section class="stats-row" id="stats-row"></section>
+
+    <!-- 错误分布 -->
+    <section class="card error-card" id="error-card"></section>
+
+    <p class="footnote" id="footnote"></p>
+  </main>
+</div>
+
+<script>
+  // ===== 内嵌数据快照（2026-08-30 真实累计值）；同源托管时自动改用实时 API =====
+  const SNAPSHOT = {
+    performance: {
+      duration_ms: { p50_ms: 15600, p90_ms: 59700, p99_ms: 274300, sample_count: 3241 },
+      time_to_first_token_ms: { p50_ms: 8200, p90_ms: 25100, p99_ms: 93400, sample_count: 1843 },
+    },
+    health: {
+      request_count: 3250, requests_with_retries: 156, total_retries: 478,
+      errored_requests: 254, cancelled_by_user: 17, context_exceeded: 0,
+      errors: [
+        { source: "zcode", error_type: "rate_limited", error_code: "RATE_LIMITED", request_count: 123 },
+        { source: "zcode", error_type: "server_error", error_code: "SERVER_ERROR", request_count: 81 },
+        { source: "zcode", error_type: "network_error", error_code: "NETWORK_ERROR", request_count: 19 },
+        { source: "zcode", error_type: "cancelled", error_code: "CANCELLED", request_count: 17 },
+        { source: "zcode", error_type: "unknown", error_code: "UNKNOWN", request_count: 6 },
+        { source: "zcode", error_type: "auth_failed", error_code: "AUTH_FAILED", request_count: 5 },
+        { source: "zcode", error_type: "invalid_request", error_code: "INVALID_REQUEST", request_count: 2 },
+        { source: "zcode", error_type: "model_error", error_code: "MODEL_ERROR", request_count: 1 },
+      ],
+    },
+  };
+
+  const fmtInt = (n) => n.toLocaleString("zh-CN");
+  const fmtMs = (ms) => (ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms");
+  const pct = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) + "%" : "0%");
+
+  // 把 P99 向上取整到 1/1.5/2/2.5/3/4/5/6/8/10 × 10^n，作为统一刻度上限
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    const exp = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) {
+      if (m * exp >= v) return m * exp;
+    }
+    return 10 * exp;
+  }
+  const fmtSec = (ms) => {
+    const s = ms / 1000;
+    return s >= 100 ? Math.round(s) + "s" : s.toFixed(s < 10 ? 1 : 0) + "s";
+  };
+
+  function latencyCard(title, stats, extraNote) {
+    if (!stats) return `<div class="card perf-card"><div class="card-head"><span class="card-title">${title}</span></div><p class="scale-note">暂无样本</p></div>`;
+    const scale = niceMax(stats.p99_ms);
+    const rows = [["P50", stats.p50_ms], ["P90", stats.p90_ms], ["P99", stats.p99_ms]]
+      .map(([label, ms]) => `
+        <div class="lat-row">
+          <span class="lat-label num">${label}</span>
+          <div class="lat-track"><div class="lat-bar" style="width:${Math.max((ms / scale) * 100, 1)}%"></div></div>
+          <span class="lat-val num">${fmtMs(ms)}</span>
+        </div>`).join("");
+    return `
+      <div class="card perf-card">
+        <div class="card-head">
+          <span class="card-title">${title}</span>
+          <span class="card-note-r">有效样本 ${fmtInt(stats.sample_count)}</span>
+        </div>
+        ${rows}
+        <p class="scale-note">刻度 0–${fmtSec(scale)} · 各分位按同一最大值比较${extraNote ? " · " + extraNote : ""}</p>
+      </div>`;
+  }
+
+  function render(perf, health) {
+    const d = health;
+    const errRate = d.request_count ? d.errored_requests / d.request_count : 0;
+    const retryRate = d.request_count ? d.requests_with_retries / d.request_count : 0;
+    const cancelRate = d.request_count ? d.cancelled_by_user / d.request_count : 0;
+    const healthy = errRate < 0.1;
+
+    document.getElementById("page-sub").innerHTML =
+      `累计口径 · 数据库共 ${fmtInt(d.request_count)} 次模型请求 <span class="src-badge" id="src-badge"></span>`;
+
+    document.getElementById("health-strip").innerHTML = `
+      <div class="status"><span class="status-dot${healthy ? "" : " bad"}"></span>${healthy ? "总体健康" : "需要关注"}</div>
+      <div class="strip-div"></div>
+      <div class="strip-metric"><span class="k">错误率</span><span class="v num ${errRate >= 0.05 ? "danger" : ""}">${pct(d.errored_requests, d.request_count)}</span></div>
+      <div class="strip-metric"><span class="k">重试率</span><span class="v num">${pct(d.requests_with_retries, d.request_count)}</span></div>
+      <div class="strip-metric"><span class="k">取消率</span><span class="v num">${pct(d.cancelled_by_user, d.request_count)}</span></div>`;
+
+    document.getElementById("perf-row").innerHTML =
+      latencyCard("请求耗时 duration", perf.duration_ms) +
+      latencyCard("首字延迟 TTF", perf.time_to_first_token_ms, "仅统计含该字段的请求，空值已排除");
+
+    const avgRetry = d.requests_with_retries ? (d.total_retries / d.requests_with_retries).toFixed(1) : "0";
+    const topErr = d.errors.length ? d.errors.slice().sort((a, b) => b.request_count - a.request_count)[0] : null;
+    document.getElementById("stats-row").innerHTML = `
+      <div class="card stat-card">
+        <span class="stat-label">模型请求总数</span>
+        <span class="stat-value num">${fmtInt(d.request_count)}</span>
+        <span class="stat-sub">含用户取消 ${fmtInt(d.cancelled_by_user)} · 上下文超限 ${fmtInt(d.context_exceeded)}</span>
+      </div>
+      <div class="card stat-card">
+        <span class="stat-label">含重试的请求</span>
+        <span class="stat-value num">${fmtInt(d.requests_with_retries)}</span>
+        <span class="stat-sub">重试总次数 ${fmtInt(d.total_retries)} · 平均 ${avgRetry} 次/请求</span>
+      </div>
+      <div class="card stat-card">
+        <span class="stat-label">出错请求</span>
+        <span class="stat-value num danger">${fmtInt(d.errored_requests)}</span>
+        <span class="stat-sub">错误率 ${pct(d.errored_requests, d.request_count)}${topErr ? " · 首位 " + topErr.error_type + " " + pct(topErr.request_count, d.errored_requests) : ""}</span>
+      </div>`;
+
+    const maxErr = Math.max(...d.errors.map((e) => e.request_count), 1);
+    const errRows = d.errors.length === 0
+      ? `<p class="scale-note" style="color:var(--ok)">当前数据库没有任何错误记录</p>`
+      : d.errors.map((e) => `
+        <div class="err-row">
+          <span class="err-name">${e.error_type}${e.error_code ? `<span class="err-code">${e.error_code}</span>` : ""}</span>
+          <div class="err-barzone"><div class="err-bar" style="width:${Math.max((e.request_count / maxErr) * 100, 1)}%"></div></div>
+          <span class="err-count num">${fmtInt(e.request_count)}</span>
+          <span class="err-pct num">${pct(e.request_count, d.errored_requests)}</span>
+        </div>`).join("");
+    document.getElementById("error-card").innerHTML = `
+      <div class="card-head">
+        <span class="card-title">错误类型分布 · 按来源</span>
+        <span class="card-note-r">占出错请求 ${fmtInt(d.errored_requests)} 次的比例</span>
+      </div>${errRows}`;
+
+    document.getElementById("footnote").textContent =
+      `口径：重试按请求粒度计数（retry_count > 0 视为含重试）；错误按 error_type 非空计，同类错误合并展示。当前时间范围“全部”为数据库累计口径，共 ${fmtInt(d.request_count)} 次请求。`;
+  }
+
+  async function fetchJson(url, ms) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      if (!res.ok) throw new Error(res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function load() {
+    let perf = SNAPSHOT.performance, health = SNAPSHOT.health, live = false;
+    if (location.protocol !== "file:") {
+      try {
+        const [p, h] = await Promise.all([
+          fetchJson("/api/performance", 2500),
+          fetchJson("/api/health", 2500),
+        ]);
+        perf = p; health = h; live = true;
+      } catch { /* 回退快照 */ }
+    }
+    render(perf, health);
+    const badge = document.getElementById("src-badge");
+    if (badge) badge.textContent = live ? "实时数据" : "数据快照 · 2026-08-30";
+  }
+
+  document.getElementById("theme-toggle").addEventListener("click", (e) => {
+    const html = document.documentElement;
+    const toLight = html.dataset.mode !== "light";
+    html.dataset.mode = toLight ? "light" : "";
+    e.currentTarget.textContent = toLight ? "切换深色" : "切换浅色";
+  });
+
+  load();
+</script>
+</body>
+</html>
