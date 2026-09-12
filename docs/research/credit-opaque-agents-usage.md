@@ -590,7 +590,7 @@ token」，若 `base` 近似常数即可反推 token。实测：**766 条含 cre
 - **不是回收站**。`C:\$Recycle.Bin` 无当日大 jsonl → 程序化删除(应用内删除或 IDE 会话管理)。
   被删会话在 `projects/`、`tasks/`、`file-history/` 的目录被同步清除,是**完整的会话删除流程**,
   非文件损坏。具体由用户触发还是 IDE 自动触发,磁盘上无法分辨。
-- 被删内容:全部 transcript 属于 `C:\Users\h7242\Documents\Qoder\2026-08-27\5a22f190` 与
+- 被删内容:全部 transcript 属于 `C:\Users\<用户名>\Documents\Qoder\2026-08-27\5a22f190` 与
   `D:\appdevelop\Qoder CN IDE` 两个项目目录(约 157 条消息、≈390.12 实扣积分)。
   **这部分积分本地已不可恢复**(见 8.2,logs/sessions 不含 credits)。
 - 趋势图历史边界由厂商/操作决定的判断(§ Further Notes)**本机已发生**,快照入库的产品决策
